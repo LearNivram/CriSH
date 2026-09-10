@@ -74,7 +74,8 @@ per command in [the GNU compatibility page](docs/gnu.md), and every line under
 The suite in [`tests/`](tests/README.md) is **differential**. The same case files
 run twice in CI:
 
-- under `crish` on `macos-14` (arm64) and `macos-13` (x86_64),
+- under `crish` on two macOS runners, with the x86_64 slice of the universal
+  binary exercised through Rosetta,
 - under **bash 5 with real GNU coreutils** on `ubuntu-latest`.
 
 Any check that answers differently fails the build. That is the whole

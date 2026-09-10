@@ -99,7 +99,7 @@ gets its own paragraph.
 
 ## Review
 
-Pull requests need CI green on `macos-14`, `macos-13` and the Linux
+Pull requests need CI green on both macOS runners and on the Linux
 differential job. Small pull requests get read quickly; a 2,000 line one will
 sit. If you are planning something large, open an issue first and say what you
 have in mind.

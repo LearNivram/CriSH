@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-latest, macos-14, macos-13]
+        runner: [macos-latest, macos-14]
     steps:
       - uses: actions/checkout@v4
 
@@ -75,8 +75,21 @@ jobs:
             exit 1
           fi
 
-      - name: Test the universal build
+      - name: Test the arm64 slice
         run: ./build/crish tests/run.crsh
+
+      # GitHub retired the Intel macOS runners, so the x86_64 slice is
+      # exercised through Rosetta on the arm64 runner.  If Rosetta is not
+      # there, say so rather than pretend the slice was tested.
+      - name: Test the x86_64 slice under Rosetta
+        run: |
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 ./build/crish --version
+            arch -x86_64 ./build/crish tests/run.crsh
+          else
+            echo "::notice title=x86_64 untested::Rosetta is not available on \
+          this runner; the x86_64 slice was built and inspected but not run"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
