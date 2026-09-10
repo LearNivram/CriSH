@@ -137,8 +137,8 @@ and a default long form close to GNU's.
 `-n` `-h` `-H` `-o` `-b` `-Z` · `-r`/`-R` · `-s` · `-a` · `-m N` ·
 `-A N` `-B N` `-C N` and the bare `-N` form · `-e PATTERN` (repeatable) ·
 `-f FILE` · `--include` `--exclude` `--exclude-dir` · `--label` ·
-`--color`/`--colour` accepted and ignored · exit status 0/1/2 · `egrep` and
-`fgrep` when invoked under those names.
+`--color[=auto|always|never]` with `GREP_COLORS` (`ms mc sl cx fn ln se`) ·
+exit status 0/1/2 · `egrep` and `fgrep` when invoked under those names.
 
 `-P` is a Perl **subset**: `\d \D \w \W \s \S \b \B`, non-greedy `*? +? ?? {}?`,
 non-capturing `(?:...)`. Look-around, named groups, `\K`, possessive quantifiers
@@ -147,6 +147,34 @@ rather than a wrong answer.
 
 **Not implemented:** `--binary-files` beyond being accepted, `-z`,
 `--devices`, `--group-separator`.
+
+**One deliberate difference:** the default is `--color=auto`, where GNU's is
+`never`. Nearly every Linux setup aliases `grep` to `--color=auto`, and `auto`
+paints only when the output is a terminal, so no script's output changes. See
+[colours](colors.md#grep).
+
+### `ls`
+
+BSD `ls` has no `--color`, no `--group-directories-first` and no
+`--time-style` — exactly the flags a Linux dotfile reaches for.
+
+**Works:** `-l -a -A -1 -C -d -f -F -g -G -h -i -k -n -o -p -Q -r -R -S -t -u
+-c -U -v -X` · `--color[=WHEN]` · `--group-directories-first` ·
+`--time-style=full-iso|long-iso|iso|+FORMAT` ·
+`--sort=none|size|time|extension|version` · the long forms `--all`,
+`--almost-all`, `--reverse`, `--recursive`, `--human-readable`, `--classify`,
+`--inode`, `--numeric-uid-gid`, `--directory`, `--quote-name`.
+
+`LS_COLORS` is read when set (the `di ln ex fi pi so bd cd or` keys and
+`*.suffix` rules); otherwise CriSH's own theme applies. One entry per line when
+the output is not a terminal, columns when it is, as GNU does. Ordinary files
+get no escape at all.
+
+**Not implemented:** `-Z` SELinux contexts, `--dired`, ACL and extended
+attribute columns (no `+` or `@` marker after the mode), `--hyperlink`,
+`--block-size`, `-s`, `--author`, and locale-aware collation — sorting is
+byte-wise, as everywhere in CriSH. `-R` walks breadth first, so the directory
+headers come in a slightly different order from GNU's depth-first walk.
 
 ### `awk`
 

@@ -36,6 +36,7 @@ Everything CriSH answers to, in one place. `help` prints the same list;
 | `shift` | drop leading positional parameters |
 | `shopt` | shell behaviour options |
 | `test` / `[` | evaluate a conditional expression |
+| `theme` | choose the colour scheme; `--preview`, `--roles` |
 | `times` | accumulated process times |
 | `trap` | run a command on a signal; `-p` `-l` |
 | `true` / `false` | succeed, fail |
@@ -52,11 +53,11 @@ per command in [GNU compatibility](gnu.md).
 
 ```
 awk       base64    basename  cat       cut       date      dirname
-env       expr      grep      head      md5sum    mktemp    nl
-paste     readlink  realpath  rev       sed       seq       sha1sum
-sha256sum sha512sum shuf      sleep     sort      stat      tac
-tail      tee       timeout   tr        truncate  uniq      wc
-xargs     yes
+env       expr      grep      head      ls        md5sum    mktemp
+nl        paste     readlink  realpath  rev       sed       seq
+sha1sum   sha256sum sha512sum shuf      sleep     sort      stat
+tac       tail      tee       timeout   tr        truncate  uniq
+wc        xargs     yes
 ```
 
 `type NAME` says which one you will get:
@@ -84,6 +85,9 @@ crish -c 'command' [name [args]]
 | `-e -u -x -v -f -n -m -C -a -h` | the usual `set` options |
 | `-o NAME` | a long option, such as `pipefail` |
 | `--norc` | do not read `~/.crishrc` |
+| `--color=WHEN` | colour output: `auto` (default), `always`, `never` |
+| `--no-color` | the same as `--color=never` |
+| `--highlight LINE` | print one line the way the editor would colour it |
 | `--posix` | set the `posix` option and turn the GNU built-ins off |
 | `--version` | print the version |
 | `--help` | print the usage |

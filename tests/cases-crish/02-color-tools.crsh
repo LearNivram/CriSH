@@ -1,0 +1,45 @@
+suite color-tools
+
+esc=$(printf '\033')
+d=$(scratch)
+
+# grep paints the match, and only the match.
+check grep-plain       "$(echo aXb | grep X)"                              aXb
+check grep-never       "$(echo aXb | grep --color=never X)"                aXb
+check grep-always      "$(echo aXb | grep --color=always X | grep -c "$esc")"  1
+check grep-match-only  "$(echo aXb | grep --color=always X | sed "s/$esc\[[0-9;]*m//g")"  aXb
+check grep-ms          "$(echo aXb | grep --color=always X | grep -c '01;31')"  1
+check grep-colors-env  "$(GREP_COLORS='ms=01;36' grep --color=always X <<< aXb | grep -c '01;36')"  1
+check grep-o-painted   "$(echo abc123 | grep --color=always -o '[0-9]*' | grep -c "$esc")"  1
+# a pipe gets none, so a script that greps into a file is unaffected
+check grep-auto-piped  "$(echo aXb | grep --color=auto X)"                 aXb
+
+# ls: one entry per line and no colour when it is not a terminal.
+mkdir -p "$d/lsdir/sub"
+: > "$d/lsdir/plain.txt"
+printf '#!/bin/sh\n' > "$d/lsdir/run.sh"
+chmod +x "$d/lsdir/run.sh"
+
+check ls-piped-lines   "$(ls "$d/lsdir" | tr '\n' ',')"                    "plain.txt,run.sh,sub,"
+check ls-piped-plain   "$(ls "$d/lsdir" | grep -c "$esc")"                 0
+# plain.txt gets no escape at all, the way GNU leaves ordinary files alone
+check ls-always        "$(ls --color=always "$d/lsdir" | grep -c "$esc")"  2
+check ls-dir-blue      "$(ls --color=always -d "$d/lsdir/sub" | grep -c '1;34')"  1
+check ls-exec-green    "$(ls --color=always -d "$d/lsdir/run.sh" | grep -c '1;32')"  1
+check ls-plain-unpainted "$(ls --color=always -d "$d/lsdir/plain.txt" | grep -c "$esc")"  0
+check ls-ls-colors     "$(LS_COLORS='di=01;35' ls --color=always -d "$d/lsdir/sub" | grep -c '01;35')"  1
+
+# ls: the GNU flags the BSD one does not have.
+check ls-group-dirs    "$(ls --group-directories-first "$d/lsdir" | head -1)"  sub
+check ls-classify      "$(ls -F "$d/lsdir" | tr '\n' ',')"                 "plain.txt,run.sh*,sub/,"
+check ls-time-style    "$(ls -l --time-style=long-iso "$d/lsdir/plain.txt" | wc -w | tr -d ' ')"  8
+check ls-sort-none     "$(ls -U "$d/lsdir" | wc -l | tr -d ' ')"            3
+check ls-reverse       "$(ls -r "$d/lsdir" | head -1)"                      sub
+check ls-almost-all    "$(ls -A "$d/lsdir" | wc -l | tr -d ' ')"            3
+check ls-one           "$(ls -1 "$d/lsdir" | wc -l | tr -d ' ')"            3
+
+# named files are listed together, with no "total" line
+check ls-no-total      "$(ls -l "$d/lsdir/plain.txt" "$d/lsdir/run.sh" | grep -c total)"  0
+check ls-both-listed   "$(ls -l "$d/lsdir/plain.txt" "$d/lsdir/run.sh" | wc -l | tr -d ' ')"  2
+# a directory listing does have one
+check ls-total         "$(ls -l "$d/lsdir" | head -1 | cut -d' ' -f1)"     total

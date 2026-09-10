@@ -69,6 +69,26 @@ ho
 per command in [the GNU compatibility page](docs/gnu.md), and every line under
 **Works** there has a test.
 
+## You can see what exists
+
+The line editor colours a command name **green the moment it resolves** and
+leaves it **red** while it does not, so a typo shows up before you press Enter
+rather than after:
+
+```
+$ grpe -n main src/*.c        grpe is red
+$ grep -n main src/*.c        grep is green
+```
+
+Strings, variables, expansions, operators, redirections and comments each get
+their own colour, an argument that names a path that exists is underlined, and
+the completion list tells directories, executables, symlinks and builtins
+apart. `grep` and the built-in `ls` colour their output too.
+
+All of it is off when the output is not a terminal, so no script's output ever
+changes, and `NO_COLOR=1` turns off the lot. Themes, individual roles and the
+prompt are in [colours](docs/colors.md).
+
 ## Honest about the tests
 
 The suite in [`tests/`](tests/README.md) is **differential**. The same case files
@@ -78,7 +98,10 @@ run twice in CI:
   binary exercised through Rosetta,
 - under **bash 5 with real GNU coreutils** on `ubuntu-latest`.
 
-Any check that answers differently fails the build. That is the whole
+Any check that answers differently fails the build. The handful of checks that
+only CriSH could pass — `--highlight`, `theme`, `CRISH_COLORS` — live in a
+separate directory so that everything in the shared set stays true under real
+bash and real GNU tools. That is the whole
 compatibility claim, and it is mechanical rather than aspirational.
 
 ## Speed
@@ -111,7 +134,8 @@ every number are in [benchmarks](docs/benchmarks.md).
 ## Documentation
 
 **Using it:** [installing](docs/installing.md) ·
-[configuration](docs/configuration.md) · [shortcuts](docs/shortcuts.md)
+[configuration](docs/configuration.md) · [shortcuts](docs/shortcuts.md) ·
+[colours](docs/colors.md)
 
 **Writing scripts:** [GNU compatibility](docs/gnu.md) ·
 [bash compatibility](docs/bash.md) · [writing scripts](docs/scripting.md) ·

@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <mach-o/dyld.h>
 #include <unistd.h>
 
 #include "shell.h"
@@ -699,6 +700,16 @@ void vars_init(char **envp)
 		var_set_global("PS2", "\\c{operator}>\\c{} ", 0);
 	var_set_global("PS4", "+ ", 0);
 	var_set_global("CRISH_VERSION", CRISH_VERSION, 0);
+	/* The absolute path of this binary, so a script can re-invoke the very
+	 * shell that is running it. */
+	{
+		char buf[4096];
+		char real[4096];
+		uint32_t size = sizeof buf;
+
+		if (_NSGetExecutablePath(buf, &size) == 0)
+			var_set_global("CRISH", realpath(buf, real) ? real : buf, 0);
+	}
 	var_set_global("SHELL_TYPE", "crish", 0);
 
 	{

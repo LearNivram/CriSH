@@ -82,6 +82,9 @@ void color_refresh(void);
 
 /* The escape for a role, or "" when colour is off.  Never NULL. */
 const char *color(ColorRole role);
+/* The escape for a role whatever the global decision says, for a tool that
+ * was told --color=always on its own. */
+const char *color_force(ColorRole role);
 /* The reset escape, or "" when colour is off. */
 const char *color_off(void);
 

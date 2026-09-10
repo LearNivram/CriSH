@@ -48,7 +48,7 @@ static const RoleDef roles[C_ROLE_COUNT] = {
 	{ "sock",     "1;35",   "38;5;139", ""     },
 	{ "block",    "1;33",   "38;5;186", ""     },
 	{ "char",     "1;33",   "38;5;186", ""     },
-	{ "file",     "0",      "0",        "0"    },
+	{ "file",     "",       "",         ""     }, /* plain: no escape at all */
 
 	{ "error",    "1;31",   "38;5;167", "1"    },
 	{ "warn",     "1;33",   "38;5;179", "1"    },
@@ -192,11 +192,11 @@ static int decide(void)
 	if (requested == COLOR_NEVER)
 		return 0;
 	/* no-color.org: any value, even empty, means off */
-	if (getenv("NO_COLOR"))
+	if (var_get("NO_COLOR") || getenv("NO_COLOR"))
 		return 0;
 	if (requested == COLOR_ALWAYS)
 		return 1;
-	if (getenv("CLICOLOR_FORCE"))
+	if (var_get("CLICOLOR_FORCE") || getenv("CLICOLOR_FORCE"))
 		return 1;
 
 	term = var_get("TERM");
@@ -238,6 +238,13 @@ int color_enabled(void)
 const char *color(ColorRole role)
 {
 	if (!enabled || role < 0 || role >= C_ROLE_COUNT || !current[role])
+		return "";
+	return current[role];
+}
+
+const char *color_force(ColorRole role)
+{
+	if (role < 0 || role >= C_ROLE_COUNT || !current[role])
 		return "";
 	return current[role];
 }

@@ -64,8 +64,8 @@ usual file predicates.
 `set -e -u -x -v -f -n -m -C -a -h -o pipefail`, and `shopt` for
 `globstar nullglob failglob dotglob extglob nocasematch nocaseglob
 inherit_errexit lastpipe expand_aliases checkwinsize cmdhist histappend autocd
-cdspell xpg_echo huponexit progcomp sourcepath interactive_comments`, plus two
-of CriSH's own: `gnu_builtins` and `gnu_warn`.
+cdspell xpg_echo huponexit progcomp sourcepath interactive_comments`, plus four
+of CriSH's own: `gnu_builtins`, `gnu_warn`, `color` and `syntax_highlight`.
 
 ### Builtins
 
@@ -78,7 +78,10 @@ shift shopt test [ times trap true type ulimit umask unalias unset update wait`
 
 `PWD OLDPWD IFS PS1 PS2 PS4 PATH HOME SHLVL UID EUID PPID HOSTNAME RANDOM
 SRANDOM SECONDS EPOCHSECONDS EPOCHREALTIME LINENO BASHPID BASH_REMATCH
-OPTIND OPTARG REPLY CRISH_VERSION`
+OPTIND OPTARG REPLY CRISH_VERSION CRISH`
+
+`CRISH` is the absolute path of the running shell, so a script can re-invoke
+the very shell that is running it.
 
 `EPOCHSECONDS`, `EPOCHREALTIME` and `SRANDOM` are bash 5 additions that macOS's
 bash does not have.

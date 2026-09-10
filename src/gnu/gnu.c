@@ -100,6 +100,7 @@ static const GnuTool tools[] = {
 	{ "expr", gnu_expr, "evaluate an expression" },
 	{ "grep", gnu_grep, "search for a pattern (-E, -F, -P, -r, -o, -A/-B/-C, -w)" },
 	{ "head", gnu_head, "first lines or bytes (-n, -c, negative counts)" },
+	{ "ls", gnu_ls, "list directory contents (--color, --group-directories-first)" },
 	{ "md5sum", gnu_sha, "MD5 checksums (-c, --tag)" },
 	{ "mktemp", gnu_mktemp, "make a temporary file or directory (-d, -t, --suffix)" },
 	{ "nl", gnu_nl, "number lines (-b, -w, -s, -v)" },
