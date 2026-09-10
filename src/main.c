@@ -10,6 +10,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "color.h"
+#include "highlight.h"
 #include "shell.h"
 
 Shell sh;
@@ -21,9 +23,10 @@ void shell_error(const char *fmt, ...)
 	va_list ap;
 
 	fflush(stdout);
-	fputs("crish: ", stderr);
+	fprintf(stderr, "%scrish:%s ", color(C_ERROR), color_off());
 	if (sh.script_name && !sh.interactive)
-		fprintf(stderr, "%s: line %d: ", sh.script_name, sh.lineno);
+		fprintf(stderr, "%s%s: line %d:%s ", color(C_HINT), sh.script_name,
+			sh.lineno, color_off());
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -35,7 +38,7 @@ void shell_error_at(const char *where, const char *fmt, ...)
 	va_list ap;
 
 	fflush(stdout);
-	fprintf(stderr, "crish: %s: ", where);
+	fprintf(stderr, "%scrish:%s %s: ", color(C_ERROR), color_off(), where);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -47,7 +50,7 @@ void shell_fatal(const char *fmt, ...)
 	va_list ap;
 
 	fflush(stdout);
-	fputs("crish: ", stderr);
+	fprintf(stderr, "%scrish:%s ", color(C_ERROR), color_off());
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -70,6 +73,8 @@ static void defaults(void)
 	sh.shopt.checkwinsize = 1;
 	sh.shopt.cmdhist = 1;
 	sh.shopt.extglob = 1;
+	sh.shopt.syntax_highlight = 1;
+	sh.shopt.color = 1;
 	sh.last_status = 0;
 }
 
@@ -99,6 +104,8 @@ static void usage(FILE *out)
 		"  -e -u -x -f   the usual set options\n"
 		"  -o name       set a long option (errexit, pipefail, ...)\n"
 		"  --norc        do not read ~/.crishrc\n"
+		"  --color=WHEN  colour output: auto (default), always, never\n"
+		"  --highlight L show one line the way the editor would colour it\n"
 		"  --posix       stay closer to POSIX, drop the GNU builtins\n"
 		"  --version     print the version\n"
 		"  --help        print this message\n"
@@ -197,6 +204,8 @@ int main(int argc, char **argv, char **envp)
 	const char *command = NULL;
 	const char *script = NULL;
 	int force_interactive = 0, read_stdin = 0, norc = 0;
+	int color_when = COLOR_AUTO;
+	const char *highlight_arg = NULL;
 	Vec args;
 
 	shell_init(argc, argv, envp);
@@ -225,6 +234,28 @@ int main(int argc, char **argv, char **envp)
 		}
 		if (strcmp(a, "--norc") == 0) {
 			norc = 1;
+			continue;
+		}
+		if (str_prefix(a, "--color") || str_prefix(a, "--colour")) {
+			const char *eq = strchr(a, '=');
+			const char *when = eq ? eq + 1 : "always";
+
+			if (strcmp(when, "never") == 0 || strcmp(when, "none") == 0)
+				color_when = COLOR_NEVER;
+			else if (strcmp(when, "auto") == 0 || strcmp(when, "tty") == 0)
+				color_when = COLOR_AUTO;
+			else
+				color_when = COLOR_ALWAYS;
+			continue;
+		}
+		if (strcmp(a, "--no-color") == 0 || strcmp(a, "--no-colour") == 0) {
+			color_when = COLOR_NEVER;
+			continue;
+		}
+		if (strcmp(a, "--highlight") == 0) {
+			if (i + 1 >= argc)
+				shell_fatal("--highlight: option requires an argument");
+			highlight_arg = argv[++i];
 			continue;
 		}
 		if (strcmp(a, "--posix") == 0) {
@@ -284,6 +315,16 @@ int main(int argc, char **argv, char **envp)
 			return 2;
 		}
 		break;
+	}
+
+	color_init(color_when);
+
+	if (highlight_arg) {
+		char *painted = highlight_render(highlight_arg, strlen(highlight_arg));
+
+		puts(painted);
+		free(painted);
+		return 0;
 	}
 
 	if (!command && !read_stdin && i < argc)

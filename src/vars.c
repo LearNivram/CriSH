@@ -688,8 +688,15 @@ void vars_init(char **envp)
 	if (getcwd(cwd, sizeof cwd))
 		var_set_global("PWD", cwd, V_EXPORT);
 	var_set_global("IFS", " \t\n", 0);
-	var_set_global("PS1", "\\u@\\h \\W \\$ ", 0);
-	var_set_global("PS2", "> ", 0);
+	/* A prompt built from colour roles, so CRISH_THEME repaints it too.  An
+	 * inherited or user-set PS1 is never overwritten. */
+	if (!var_get("PS1"))
+		var_set_global("PS1",
+			       "\\c{user}\\u\\c{}@\\c{host}\\h\\c{} "
+			       "\\c{cwd}\\w\\c{}\\c{git}\\G\\c{} \\P ",
+			       0);
+	if (!var_get("PS2"))
+		var_set_global("PS2", "\\c{operator}>\\c{} ", 0);
 	var_set_global("PS4", "+ ", 0);
 	var_set_global("CRISH_VERSION", CRISH_VERSION, 0);
 	var_set_global("SHELL_TYPE", "crish", 0);

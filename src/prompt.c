@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "color.h"
 #include "shell.h"
 
 /* Walk up looking for .git, then read HEAD.  No process is spawned. */
@@ -252,6 +253,41 @@ char *prompt_render(const char *format)
 			char b[16];
 			snprintf(b, sizeof b, "%d", sh.last_status);
 			buf_puts(&out, b);
+			break;
+		}
+		case 'c': { /* CriSH extension: \c{role} starts a colour, \c{} ends */
+			if (p[1] == '{') {
+				const char *close = strchr(p + 2, '}');
+
+				if (close) {
+					size_t n = (size_t)(close - p - 2);
+
+					if (!n) {
+						buf_puts(&out, color_off());
+					} else {
+						char *name = xstrndup(p + 2, n);
+						int role = color_role_by_name(name);
+
+						if (role >= 0)
+							buf_puts(&out, color((ColorRole)role));
+						free(name);
+					}
+					p = close;
+					break;
+				}
+			}
+			buf_putc(&out, '\\');
+			buf_putc(&out, 'c');
+			break;
+		}
+		case 'P': { /* CriSH extension: the sigil, coloured by the last status */
+			int ok = sh.last_status == 0;
+
+			buf_puts(&out, color(ok ? C_PROMPT_OK : C_PROMPT_FAIL));
+			if (!ok)
+				buf_printf(&out, "%d ", sh.last_status);
+			buf_putc(&out, geteuid() == 0 ? '#' : '$');
+			buf_puts(&out, color_off());
 			break;
 		}
 		case '[':

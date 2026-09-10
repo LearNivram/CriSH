@@ -268,6 +268,8 @@ typedef struct {
 	int cdspell;
 	int gnu_builtins; /* CriSH: use the built-in GNU utilities */
 	int gnu_warn;     /* warn when a built-in shadows a PATH binary */
+	int syntax_highlight; /* colour the line while it is being typed */
+	int color;            /* colour at all */
 	int xpg_echo;
 	int huponexit;
 	int progcomp;

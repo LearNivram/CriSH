@@ -15,9 +15,13 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "color.h"
+#include "highlight.h"
 #include "shell.h"
 
-void complete_line(const char *line, size_t point, Vec *out, size_t *replace_from);
+void complete_line(const char *line, size_t point, Vec *out, Vec *kinds,
+		   size_t *replace_from);
+ColorRole complete_kind_color(char kind);
 
 static struct termios orig_termios;
 static int raw_active;
@@ -73,6 +77,18 @@ static int term_width(void)
 	return 80;
 }
 
+/* Display columns of a byte range, which is not the same as its length once
+ * anyone types a character outside ASCII. */
+static size_t columns_of(const char *s, size_t len)
+{
+	size_t i, cols = 0;
+
+	for (i = 0; i < len; i++)
+		if ((s[i] & 0xc0) != 0x80)
+			cols++;
+	return cols;
+}
+
 /* Printable width of a prompt, ignoring escape sequences. */
 static size_t visible_width(const char *s)
 {
@@ -121,12 +137,16 @@ static void refresh(Editor *ed)
 	size_t start = 0;
 	size_t shown;
 	size_t cursor_col;
+	const char *text = ed->buf.b ? ed->buf.b : "";
+	size_t point_cols = columns_of(text, ed->point);
+	size_t total_cols = columns_of(text, ed->buf.len);
 
 	/* Scroll horizontally when prompt plus line no longer fit. */
-	if (ed->prompt_width + ed->buf.len >= width) {
-		size_t cursor = ed->prompt_width + ed->point;
+	if (ed->prompt_width + total_cols >= width) {
+		size_t cursor = ed->prompt_width + point_cols;
+
 		if (cursor >= width - 1)
-			start = cursor - width + 2;
+			start = ed->point - (ed->point > width ? width - 2 : ed->point);
 	}
 
 	buf_init(&o);
@@ -134,16 +154,23 @@ static void refresh(Editor *ed)
 	if (start == 0) {
 		buf_puts(&o, ed->prompt);
 		shown = ed->buf.len;
-		if (ed->prompt_width + shown > width - 1)
-			shown = width - 1 - ed->prompt_width;
-		buf_put(&o, ed->buf.b ? ed->buf.b : "", shown);
-		cursor_col = ed->prompt_width + ed->point;
+		while (ed->prompt_width + columns_of(text, shown) > width - 1 && shown)
+			shown--;
+		cursor_col = ed->prompt_width + point_cols;
 	} else {
-		shown = ed->buf.len - start;
-		if (shown > width - 1)
-			shown = width - 1;
-		buf_put(&o, ed->buf.b + start, shown);
-		cursor_col = ed->point - start;
+		shown = ed->buf.len;
+		while (columns_of(text + start, shown - start) > width - 1 && shown > start)
+			shown--;
+		cursor_col = columns_of(text + start, ed->point - start);
+	}
+	{
+		char *painted = sh.shopt.syntax_highlight && color_enabled()
+					? highlight_render_range(text, ed->buf.len, start,
+								 shown)
+					: xstrndup(text + start, shown - start);
+
+		buf_puts(&o, painted);
+		free(painted);
 	}
 	buf_puts(&o, "\r");
 	if (cursor_col)
@@ -298,13 +325,16 @@ static void reverse_search(Editor *ed)
 
 static void do_complete(Editor *ed)
 {
-	Vec matches;
+	Vec matches, kinds;
 	size_t replace_from = ed->point;
 
 	vec_init(&matches);
-	complete_line(ed->buf.b ? ed->buf.b : "", ed->point, &matches, &replace_from);
+	vec_init(&kinds);
+	complete_line(ed->buf.b ? ed->buf.b : "", ed->point, &matches, &kinds,
+		      &replace_from);
 	if (!matches.len) {
 		vec_free(&matches);
+		vec_free(&kinds);
 		return;
 	}
 	if (matches.len == 1) {
@@ -312,6 +342,7 @@ static void do_complete(Editor *ed)
 		ed->point = replace_from;
 		insert_text(ed, matches.v[0], strlen(matches.v[0]));
 		vec_free(&matches);
+		vec_free(&kinds);
 		refresh(ed);
 		return;
 	}
@@ -331,6 +362,7 @@ static void do_complete(Editor *ed)
 			ed->point = replace_from;
 			insert_text(ed, matches.v[0], common);
 			vec_free(&matches);
+			vec_free(&kinds);
 			refresh(ed);
 			return;
 		}
@@ -338,27 +370,39 @@ static void do_complete(Editor *ed)
 	outs("\r\n");
 	{
 		size_t i;
-		int width = term_width();
+		size_t width = (size_t)term_width();
 		size_t longest = 0;
-		int cols;
+		size_t cols;
+		Buf o;
 
 		for (i = 0; i < matches.len; i++)
 			if (strlen(matches.v[i]) > longest)
 				longest = strlen(matches.v[i]);
-		cols = (int)(width / (longest + 2));
+		cols = width / (longest + 2);
 		if (cols < 1)
 			cols = 1;
+
+		buf_init(&o);
 		for (i = 0; i < matches.len; i++) {
-			char pad[256];
-			snprintf(pad, sizeof pad, "%-*s", (int)longest + 2, matches.v[i]);
-			outs(pad);
-			if ((i + 1) % (size_t)cols == 0)
-				outs("\r\n");
+			char kind = i < kinds.len ? kinds.v[i][0] : '-';
+			size_t pad = longest + 2 - strlen(matches.v[i]);
+
+			color_put(&o, complete_kind_color(kind), matches.v[i]);
+			while (pad--)
+				buf_putc(&o, ' ');
+			if ((i + 1) % cols == 0) {
+				buf_puts(&o, "\r\n");
+				out(o.b, o.len);
+				buf_reset(&o);
+			}
 		}
-		if (matches.len % (size_t)cols)
-			outs("\r\n");
+		if (matches.len % cols)
+			buf_puts(&o, "\r\n");
+		out(o.b, o.len);
+		buf_free(&o);
 	}
 	vec_free(&matches);
+	vec_free(&kinds);
 	refresh(ed);
 }
 

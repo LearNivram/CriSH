@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "highlight.h"
 #include "shell.h"
 
 int builtin_test(int argc, char **argv);
@@ -36,6 +37,7 @@ static HashEnt *cmd_hash;
 
 void path_hash_clear(void)
 {
+	highlight_invalidate();
 	while (cmd_hash) {
 		HashEnt *next = cmd_hash->next;
 		free(cmd_hash->name);
@@ -152,6 +154,7 @@ void func_define(const char *name, Node *body)
 	f->body = body;
 	f->next = sh.funcs;
 	sh.funcs = f;
+	highlight_invalidate();
 }
 
 void func_undefine(const char *name)
@@ -165,6 +168,7 @@ void func_undefine(const char *name)
 			free(f->name);
 			node_free(f->body);
 			free(f);
+			highlight_invalidate();
 			return;
 		}
 	}
@@ -198,6 +202,7 @@ void alias_set(const char *name, const char *value)
 	a->value = xstrdup(value);
 	a->next = sh.aliases;
 	sh.aliases = a;
+	highlight_invalidate();
 }
 
 void alias_unset(const char *name)
@@ -211,6 +216,7 @@ void alias_unset(const char *name)
 			free(a->name);
 			free(a->value);
 			free(a);
+			highlight_invalidate();
 			return;
 		}
 	}

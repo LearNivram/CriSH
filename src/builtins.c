@@ -1171,6 +1171,8 @@ static struct opt_entry *shopt_table(size_t *n)
 		{ "cdspell", &sh.shopt.cdspell, 0 },
 		{ "gnu_builtins", &sh.shopt.gnu_builtins, 0 },
 		{ "gnu_warn", &sh.shopt.gnu_warn, 0 },
+		{ "syntax_highlight", &sh.shopt.syntax_highlight, 0 },
+		{ "color", &sh.shopt.color, 0 },
 		{ "xpg_echo", &sh.shopt.xpg_echo, 0 },
 		{ "huponexit", &sh.shopt.huponexit, 0 },
 		{ "progcomp", &sh.shopt.progcomp, 0 },
