@@ -99,32 +99,30 @@ jobs:
         run: ./build/crish tests/run.crsh
 
   asan:
-    name: address sanitizer (advisory)
+    name: address sanitizer
     runs-on: macos-latest
-    # Apple's bundled ASan runtime deadlocks inside its own initializer on
-    # recent macOS releases, before main() is reached.  That is a toolchain
-    # problem rather than a CriSH one, so this job reports but does not block.
-    continue-on-error: true
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with ASan
         run: CFLAGS='-O1 -g -fsanitize=address -fno-omit-frame-pointer' make
 
-      - name: A trivial command first, to detect the initializer deadlock
+      # Apple's bundled ASan runtime can deadlock inside its own initializer
+      # on recent macOS releases, before main() is reached.  That is a
+      # toolchain problem, not a CriSH one, so check for it and skip rather
+      # than fail the build on it.  A real ASan finding still fails.
+      - name: Test suite under ASan, when the runtime starts at all
         env:
           ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
         run: |
           if ! timeout 60 ./build/crish -c 'echo asan-runtime-ok'; then
-            echo "::warning::the ASan runtime did not start on this runner"
-            exit 1
+            echo "::warning title=ASan skipped::Apple's ASan runtime did not \
+          start on this runner; this is a known toolchain deadlock, see \
+          docs/building.md"
+            exit 0
           fi
-
-      - name: Test suite under ASan
-        env:
-          ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
-        run: ./build/crish tests/run.crsh
+          ./build/crish tests/run.crsh
 
   differential:
     name: same suite under bash 5 and GNU coreutils

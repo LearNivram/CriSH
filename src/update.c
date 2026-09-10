@@ -120,23 +120,40 @@ static char *self_path(void)
 	return xstrdup(buf);
 }
 
-/* Fetch the releases list and pick one. */
-static char *fetch_releases(int prereleases)
+/* Fetch the releases list.  *reason says what went wrong when it returns
+ * NULL, because "no releases yet" and "no network" want different advice. */
+static char *fetch_releases(int prereleases, const char **reason)
 {
 	char cmd[512];
 	int status = 0;
 	char *json;
 
+	*reason = NULL;
 	snprintf(cmd, sizeof cmd,
-		 "curl -fsSL -H 'Accept: application/vnd.github+json' "
+		 "curl -sSL -H 'Accept: application/vnd.github+json' "
 		 "'https://api.github.com/repos/%s/releases%s' 2>/dev/null",
 		 CRISH_REPO, prereleases ? "?per_page=30" : "/latest");
 	json = run_capture(cmd, &status);
 	if (status != 0 || !json || !*json) {
 		free(json);
+		*reason = "cannot reach the GitHub API";
 		return NULL;
 	}
-	return json;
+	if (strstr(json, "\"tag_name\""))
+		return json;
+	if (strstr(json, "Not Found")) {
+		free(json);
+		*reason = "the repository has no releases yet";
+		return NULL;
+	}
+	if (strstr(json, "rate limit")) {
+		free(json);
+		*reason = "the GitHub API rate limit is exhausted; try again later";
+		return NULL;
+	}
+	free(json);
+	*reason = "the GitHub API returned no releases";
+	return NULL;
 }
 
 static int install_release(const char *tag, const char *url)
@@ -269,10 +286,14 @@ int cmd_update(int argc, char **argv)
 		}
 	}
 
-	json = fetch_releases(prereleases || selector);
-	if (!json) {
-		shell_error("update: cannot reach the GitHub API");
-		return 1;
+	{
+		const char *reason = NULL;
+
+		json = fetch_releases(prereleases || selector, &reason);
+		if (!json) {
+			shell_error("update: %s", reason ? reason : "no release found");
+			return 1;
+		}
 	}
 
 	tag = json_string(json, "tag_name");

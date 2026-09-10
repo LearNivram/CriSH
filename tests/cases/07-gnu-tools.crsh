@@ -30,8 +30,14 @@ check md5            "$(printf abc | md5sum | cut -d' ' -f1)"     \
 check base64-enc     "$(printf abc | base64 -w0)"                 YWJj
 check base64-dec     "$(printf 'YWJj' | base64 -d)"               abc
 
-check readlink-f     "$(readlink -f /etc | head -c 4)"            /pri
-check realpath       "$(realpath / )"                             /
+# /etc is a symlink to /private/etc on macOS and a real directory on Linux,
+# so resolve a link we made ourselves instead.
+mkdir -p "$d/link-test/real"
+ln -sfn real "$d/link-test/alias"
+check readlink-f     "$(readlink -f "$d/link-test/alias" | sed 's|.*/||')"   real
+check readlink-plain "$(readlink "$d/link-test/alias")"                      real
+check realpath       "$(realpath / )"                                        /
+check realpath-link  "$(realpath "$d/link-test/alias" | sed 's|.*/||')"      real
 
 check seq-plain      "$(seq 3 | tr '\n' ' ')"                     "1 2 3 "
 check seq-width      "$(seq -w 8 10 | tr '\n' ' ')"               "08 09 10 "
