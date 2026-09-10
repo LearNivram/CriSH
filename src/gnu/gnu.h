@@ -29,6 +29,7 @@ int gnu_long_opt(const char *arg, const char *name, const char **value);
 
 /* Individual tools. */
 int gnu_grep(int argc, char **argv);
+int gnu_ls(int argc, char **argv);
 int gnu_sed(int argc, char **argv);
 int gnu_awk(int argc, char **argv);
 int gnu_sort(int argc, char **argv);

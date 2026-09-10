@@ -45,7 +45,14 @@ tests/
     08-shell-options.crsh globbing, set and shopt
     09-strings.crsh       printf, echo, read, quoting
     10-macos-gaps.crsh    only things a stock macOS gets wrong
+  cases-crish/          CriSH-only; skipped when the suite runs under bash
+    01-color.crsh         colour decisions, themes, the highlighter
+    02-color-tools.crsh   grep --color and the built-in ls
 ```
+
+`cases-crish/` exists so that the differential property stays exact: a check
+in `cases/` must hold under bash 5 with GNU tools, and anything that could not
+possibly hold there goes in `cases-crish/` instead.
 
 `10-macos-gaps.crsh` is the file worth reading first: every check in it fails on
 a stock Mac with `/bin/bash` and the BSD userland.

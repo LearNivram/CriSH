@@ -37,12 +37,22 @@ The bindings are emacs-style and fixed.
 The line you were typing is kept while you browse history and comes back when
 you walk past the newest entry.
 
+## Colour while you type
+
+The command name is green once it resolves and red while it does not, so a
+typo shows before you press Enter. Strings, variables, operators and comments
+each get their own colour, and an argument naming a path that exists is
+underlined. `shopt -u syntax_highlight` turns just this off; see
+[colours](colors.md).
+
 ## Completion
 
 `Tab` completes. In command position it offers builtins, built-in utilities,
 functions, aliases and everything executable on `PATH`; elsewhere it completes
 paths, and a word starting with `$` completes variable names. One match is
-inserted, several print in columns after inserting the longest common prefix.
+inserted, several print in columns after inserting the longest common prefix,
+coloured so that directories, executables, symlinks, builtins and variables are
+told apart.
 
 ## Signals
 

@@ -17,6 +17,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "color.h"
 #include "shell.h"
 
 int builtin_test(int argc, char **argv);
@@ -1171,6 +1172,8 @@ static struct opt_entry *shopt_table(size_t *n)
 		{ "cdspell", &sh.shopt.cdspell, 0 },
 		{ "gnu_builtins", &sh.shopt.gnu_builtins, 0 },
 		{ "gnu_warn", &sh.shopt.gnu_warn, 0 },
+		{ "syntax_highlight", &sh.shopt.syntax_highlight, 0 },
+		{ "color", &sh.shopt.color, 0 },
 		{ "xpg_echo", &sh.shopt.xpg_echo, 0 },
 		{ "huponexit", &sh.shopt.huponexit, 0 },
 		{ "progcomp", &sh.shopt.progcomp, 0 },
@@ -2027,6 +2030,52 @@ static int b_help(int argc, char **argv)
 	return 0;
 }
 
+static int b_theme(int argc, char **argv)
+{
+	size_t count, i;
+	const char *const *names = color_theme_names(&count);
+	int j;
+
+	if (argc > 1 && (strcmp(argv[1], "--roles") == 0)) {
+		for (j = 0; j < C_ROLE_COUNT; j++) {
+			const char *name = color_role_name((ColorRole)j);
+
+			if (name)
+				printf("%s%s", name, (j + 1) % 8 ? " " : "\n");
+		}
+		printf("\n");
+		return 0;
+	}
+	if (argc > 1 && strcmp(argv[1], "--preview") == 0) {
+		printf("theme %s%s\n\n", color_theme_name(),
+		       color_enabled() ? "" : "   (colour is off right now)");
+		for (j = 1; j < C_ROLE_COUNT; j++) {
+			const char *name = color_role_name((ColorRole)j);
+
+			if (!name)
+				continue;
+			printf("  %s%-10s%s  %s\n", color((ColorRole)j), name, color_off(),
+			       name);
+		}
+		return 0;
+	}
+	if (argc > 1) {
+		if (!color_set_theme(argv[1])) {
+			shell_error("theme: %s: no such theme", argv[1]);
+			return 1;
+		}
+		var_set("CRISH_THEME", argv[1], V_EXPORT);
+		return 0;
+	}
+	for (i = 0; i < count; i++)
+		printf("%s%s\n", strcmp(names[i], color_theme_name()) == 0 ? "* " : "  ",
+		       names[i]);
+	printf("\nthe current theme is %s; `theme NAME' switches, "
+	       "`theme --preview' shows every role\n",
+	       color_theme_name());
+	return 0;
+}
+
 /* Used by declare to route NAME=value through the normal assignment path. */
 void builtins_assign(const char *text);
 void builtins_assign(const char *text)
@@ -2088,6 +2137,7 @@ static const Builtin builtins[] = {
 	{ "shopt", b_shopt, "shopt [-pqsu] [name]", "set shell behaviour options" },
 	{ "source", b_source, "source file [args]", "read and run a file in this shell" },
 	{ "test", builtin_test, "test expr", "evaluate a conditional expression" },
+	{ "theme", b_theme, "theme [name|--preview|--roles]", "choose the colour scheme" },
 	{ "[", builtin_test, "[ expr ]", "evaluate a conditional expression" },
 	{ "times", b_times, "times", "report accumulated process times" },
 	{ "trap", b_trap, "trap [action] [signal ...]", "run a command on a signal" },

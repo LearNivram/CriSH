@@ -6,6 +6,7 @@
 - [verifying a download](verifying.md) — one command
 - [configuration](configuration.md) — `~/.crishrc`, the prompt, the environment
 - [shortcuts](shortcuts.md) — the interactive key bindings
+- [colours](colors.md) — what each colour means, themes, and how to turn it off
 
 **Writing scripts**
 

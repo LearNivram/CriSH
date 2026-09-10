@@ -1,0 +1,59 @@
+suite color-tools
+
+esc=$(printf '\033')
+d=$(scratch)
+
+# grep paints the match, and only the match.
+check grep-plain       "$(echo aXb | grep X)"                              aXb
+check grep-never       "$(echo aXb | grep --color=never X)"                aXb
+# Spelled out rather than counted, so a failure shows what was actually
+# emitted instead of just "not 1".
+painted=$(echo aXb | grep --color=always X)
+check grep-always      "$(printf '%s' "$painted" | sed "s/$esc/E/g")"   'aE[01;31mXE[mb'
+check grep-match-only  "$(printf '%s' "$painted" | sed "s/$esc\[[0-9;]*m//g")"  aXb
+
+painted=$(GREP_COLORS='ms=01;36' grep --color=always X <<< aXb)
+check grep-colors-env  "$(printf '%s' "$painted" | sed "s/$esc/E/g")"   'aE[01;36mXE[mb'
+
+painted=$(echo abc123 | grep --color=always -o '[0-9]*')
+check grep-o-painted   "$(printf '%s' "$painted" | sed "s/$esc/E/g")"   'E[01;31m123E[m'
+# a pipe gets none, so a script that greps into a file is unaffected
+check grep-auto-piped  "$(echo aXb | grep --color=auto X)"                 aXb
+
+# ls: one entry per line and no colour when it is not a terminal.
+mkdir -p "$d/lsdir/sub"
+: > "$d/lsdir/plain.txt"
+printf '#!/bin/sh\n' > "$d/lsdir/run.sh"
+chmod +x "$d/lsdir/run.sh"
+
+check ls-piped-lines   "$(ls "$d/lsdir" | tr '\n' ',')"                    "plain.txt,run.sh,sub,"
+check ls-piped-plain   "$(ls "$d/lsdir" | grep -c "$esc")"                 0
+# plain.txt gets no escape at all, the way GNU leaves ordinary files alone
+check ls-always        "$(ls --color=always "$d/lsdir" | sed "s/$esc\[[0-9;]*m//g" | tr '\n' ',')"  "plain.txt,run.sh,sub,"
+dir_painted=$(cd "$d/lsdir" && ls --color=always -d sub)
+exe_painted=$(cd "$d/lsdir" && ls --color=always -d run.sh)
+txt_painted=$(cd "$d/lsdir" && ls --color=always -d plain.txt)
+check ls-dir-blue      "$(printf '%s' "$dir_painted" | sed "s/$esc/E/g")"  'E[1;34msubE[0m'
+check ls-exec-green    "$(printf '%s' "$exe_painted" | sed "s/$esc/E/g")"  'E[1;32mrun.shE[0m'
+check ls-plain-unpainted "$txt_painted"                                    plain.txt
+
+# LS_COLORS wins, and is re-read when it changes within one shell
+dir_painted=$(cd "$d/lsdir" && LS_COLORS='di=01;35' ls --color=always -d sub)
+check ls-ls-colors     "$(printf '%s' "$dir_painted" | sed "s/$esc/E/g")"  'E[01;35msubE[0m'
+dir_painted=$(cd "$d/lsdir" && ls --color=always -d sub)
+check ls-colors-reread "$(printf '%s' "$dir_painted" | sed "s/$esc/E/g")"  'E[1;34msubE[0m'
+
+# ls: the GNU flags the BSD one does not have.
+check ls-group-dirs    "$(ls --group-directories-first "$d/lsdir" | head -1)"  sub
+check ls-classify      "$(ls -F "$d/lsdir" | tr '\n' ',')"                 "plain.txt,run.sh*,sub/,"
+check ls-time-style    "$(ls -l --time-style=long-iso "$d/lsdir/plain.txt" | wc -w | tr -d ' ')"  8
+check ls-sort-none     "$(ls -U "$d/lsdir" | wc -l | tr -d ' ')"            3
+check ls-reverse       "$(ls -r "$d/lsdir" | head -1)"                      sub
+check ls-almost-all    "$(ls -A "$d/lsdir" | wc -l | tr -d ' ')"            3
+check ls-one           "$(ls -1 "$d/lsdir" | wc -l | tr -d ' ')"            3
+
+# named files are listed together, with no "total" line
+check ls-no-total      "$(ls -l "$d/lsdir/plain.txt" "$d/lsdir/run.sh" | grep -c total)"  0
+check ls-both-listed   "$(ls -l "$d/lsdir/plain.txt" "$d/lsdir/run.sh" | wc -l | tr -d ' ')"  2
+# a directory listing does have one
+check ls-total         "$(ls -l "$d/lsdir" | head -1 | cut -d' ' -f1)"     total

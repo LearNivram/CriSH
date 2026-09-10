@@ -27,6 +27,18 @@ for suite_file in "${suite_files[@]}"; do
   . "$suite_file"
 done
 
+# Checks that only make sense under CriSH live apart from the differential
+# set, so that every case in cases/ stays true under bash 5 with GNU tools.
+if [ -n "$CRISH_VERSION" ]; then
+  for suite_file in "$here"/cases-crish/*.crsh; do
+    [ -e "$suite_file" ] || continue
+    suite_name=${suite_file##*/}
+    suite_name=${suite_name%.crsh}
+    if [ -z "$CI" ]; then progress "$suite_total" "$suite_total" "$suite_name"; fi
+    . "$suite_file"
+  done
+fi
+
 if [ -z "$CI" ]; then
   progress "$suite_total" "$suite_total" "done"
   printf '\n'

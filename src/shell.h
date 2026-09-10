@@ -268,6 +268,8 @@ typedef struct {
 	int cdspell;
 	int gnu_builtins; /* CriSH: use the built-in GNU utilities */
 	int gnu_warn;     /* warn when a built-in shadows a PATH binary */
+	int syntax_highlight; /* colour the line while it is being typed */
+	int color;            /* colour at all */
 	int xpg_echo;
 	int huponexit;
 	int progcomp;
@@ -390,6 +392,10 @@ size_t glob_expand(const char *pattern, Vec *out);
 typedef struct SavedFds SavedFds;
 SavedFds *redir_apply(Redir *r, int *ok);
 void redir_restore(SavedFds *s);
+/* The built-in utilities share this process's stdin/stdout/stderr, so a FILE's
+ * buffer and EOF flag outlive a redirection of its descriptor.  Anything that
+ * moves fd 0, 1 or 2 by hand has to say so. */
+void redir_sync_std(int fd);
 
 /* -------------------------------------------------------------------- jobs */
 

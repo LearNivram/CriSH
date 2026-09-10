@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "../color.h"
 #include "../regex.h"
 #include "gnu.h"
 
@@ -43,8 +44,81 @@ typedef struct {
 	Vec exclude;
 	Vec exclude_dir;
 	const char *label;
-	int colour;
+	int colour;      /* COLOR_AUTO / ALWAYS / NEVER */
+	int colour_on;   /* the decision, once made */
+	/* GREP_COLORS, in the same names GNU uses */
+	char *c_ms, *c_mc, *c_sl, *c_cx, *c_fn, *c_ln, *c_se;
 } Grep;
+
+/* GNU writes these as bare SGR bodies, so they are stored that way. */
+static const char *grep_colour(const char *body)
+{
+	static char buf[64];
+
+	if (!body || !*body)
+		return "";
+	snprintf(buf, sizeof buf, "\033[%sm", body);
+	return buf;
+}
+
+static void grep_paint(Grep *g, const char *body, FILE *out)
+{
+	if (g->colour_on && body && *body)
+		fputs(grep_colour(body), out);
+}
+
+static void grep_reset(Grep *g, FILE *out)
+{
+	if (g->colour_on)
+		fputs("\033[m", out);
+}
+
+/* GREP_COLORS="ms=01;31:fn=35:ln=32:se=36" */
+static void grep_read_colors(Grep *g)
+{
+	/* The built-in tools run inside the shell, so the shell's own variables
+	 * are the environment as far as they are concerned. */
+	const char *spec = var_get("GREP_COLORS");
+	char *copy, *save = NULL, *item;
+
+	g->c_ms = xstrdup("01;31");
+	g->c_mc = xstrdup("01;31");
+	g->c_sl = xstrdup("");
+	g->c_cx = xstrdup("");
+	g->c_fn = xstrdup("35");
+	g->c_ln = xstrdup("32");
+	g->c_se = xstrdup("36");
+	if (!spec || !*spec)
+		return;
+	copy = xstrdup(spec);
+	for (item = strtok_r(copy, ":", &save); item; item = strtok_r(NULL, ":", &save)) {
+		char *eq = strchr(item, '=');
+		char **slot = NULL;
+
+		if (!eq)
+			continue;
+		*eq = '\0';
+		if (strcmp(item, "ms") == 0)
+			slot = &g->c_ms;
+		else if (strcmp(item, "mc") == 0)
+			slot = &g->c_mc;
+		else if (strcmp(item, "sl") == 0)
+			slot = &g->c_sl;
+		else if (strcmp(item, "cx") == 0)
+			slot = &g->c_cx;
+		else if (strcmp(item, "fn") == 0)
+			slot = &g->c_fn;
+		else if (strcmp(item, "ln") == 0)
+			slot = &g->c_ln;
+		else if (strcmp(item, "se") == 0)
+			slot = &g->c_se;
+		if (slot) {
+			free(*slot);
+			*slot = xstrdup(eq + 1);
+		}
+	}
+	free(copy);
+}
 
 static int line_matches(Grep *g, const char *line, size_t len, RxMatch *m, size_t from)
 {
@@ -139,20 +213,73 @@ static int line_matches(Grep *g, const char *line, size_t len, RxMatch *m, size_
 	return 0;
 }
 
+/* Paint every match on the line; used for selected lines only, because GNU
+ * does not highlight the lines that -v let through. */
+static void print_body(Grep *g, const char *line, size_t len, int is_context)
+{
+	size_t from = 0;
+	const char *body = is_context ? g->c_cx : g->c_sl;
+
+	if (!g->colour_on || g->invert || is_context) {
+		grep_paint(g, body, stdout);
+		fwrite(line, 1, len, stdout);
+		if (g->colour_on && body && *body)
+			grep_reset(g, stdout);
+		return;
+	}
+	while (from < len) {
+		RxMatch m;
+
+		if (!line_matches(g, line, len, &m, from))
+			break;
+		if (m.end <= m.start) {
+			from = (size_t)m.start + 1;
+			continue;
+		}
+		fwrite(line + from, 1, (size_t)m.start - from, stdout);
+		grep_paint(g, g->c_ms, stdout);
+		fwrite(line + m.start, 1, (size_t)(m.end - m.start), stdout);
+		grep_reset(g, stdout);
+		from = (size_t)m.end;
+	}
+	if (from < len)
+		fwrite(line + from, 1, len - from, stdout);
+}
+
 static void print_line(Grep *g, const char *name, long lineno, long offset,
 		       const char *line, size_t len, int is_context)
 {
 	char sep = is_context ? '-' : ':';
 
 	if (g->with_filename && !g->no_filename) {
+		grep_paint(g, g->c_fn, stdout);
 		fputs(name, stdout);
-		putchar(g->null_out ? '\0' : sep);
+		grep_reset(g, stdout);
+		if (g->null_out) {
+			putchar('\0');
+		} else {
+			grep_paint(g, g->c_se, stdout);
+			putchar(sep);
+			grep_reset(g, stdout);
+		}
 	}
-	if (g->line_numbers)
-		printf("%ld%c", lineno, sep);
-	if (g->byte_offset)
-		printf("%ld%c", offset, sep);
-	fwrite(line, 1, len, stdout);
+	if (g->line_numbers) {
+		grep_paint(g, g->c_ln, stdout);
+		printf("%ld", lineno);
+		grep_reset(g, stdout);
+		grep_paint(g, g->c_se, stdout);
+		putchar(sep);
+		grep_reset(g, stdout);
+	}
+	if (g->byte_offset) {
+		grep_paint(g, g->c_ln, stdout);
+		printf("%ld", offset);
+		grep_reset(g, stdout);
+		grep_paint(g, g->c_se, stdout);
+		putchar(sep);
+		grep_reset(g, stdout);
+	}
+	print_body(g, line, len, is_context);
 	putchar('\n');
 }
 
@@ -222,12 +349,26 @@ static int grep_stream(Grep *g, FILE *f, const char *name, long *total)
 						from = (size_t)mm.start + 1;
 						continue;
 					}
-					if (g->with_filename && !g->no_filename)
-						printf("%s:", name);
-					if (g->line_numbers)
-						printf("%ld:", lineno);
+					if (g->with_filename && !g->no_filename) {
+						grep_paint(g, g->c_fn, stdout);
+						fputs(name, stdout);
+						grep_reset(g, stdout);
+						grep_paint(g, g->c_se, stdout);
+						putchar(':');
+						grep_reset(g, stdout);
+					}
+					if (g->line_numbers) {
+						grep_paint(g, g->c_ln, stdout);
+						printf("%ld", lineno);
+						grep_reset(g, stdout);
+						grep_paint(g, g->c_se, stdout);
+						putchar(':');
+						grep_reset(g, stdout);
+					}
+					grep_paint(g, g->c_ms, stdout);
 					fwrite(line.b + mm.start, 1,
 					       (size_t)(mm.end - mm.start), stdout);
+					grep_reset(g, stdout);
 					putchar('\n');
 					from = (size_t)mm.end;
 				}
@@ -393,6 +534,10 @@ int gnu_grep(int argc, char **argv)
 	const char *prog = argv[0];
 
 	memset(&g, 0, sizeof g);
+	/* GNU grep defaults to never; almost every Linux shell aliases it to
+	 * auto, so CriSH starts at auto and says so in docs/gnu.md. */
+	g.colour = COLOR_AUTO;
+	grep_read_colors(&g);
 	vec_init(&g.fixed);
 	vec_init(&g.include);
 	vec_init(&g.exclude);
@@ -558,8 +703,19 @@ int gnu_grep(int argc, char **argv)
 				g.label = val ? val : argv[++i];
 				continue;
 			}
-			if (gnu_long_opt(a, "color", &val) || gnu_long_opt(a, "colour", &val))
-				continue; /* accepted, output stays plain */
+			if (gnu_long_opt(a, "color", &val) || gnu_long_opt(a, "colour", &val)) {
+				const char *when = val ? val : "auto";
+
+				if (strcmp(when, "never") == 0 || strcmp(when, "none") == 0)
+					g.colour = COLOR_NEVER;
+				else if (strcmp(when, "always") == 0 ||
+					 strcmp(when, "force") == 0 ||
+					 strcmp(when, "yes") == 0)
+					g.colour = COLOR_ALWAYS;
+				else
+					g.colour = COLOR_AUTO;
+				continue;
+			}
 			if (gnu_long_opt(a, "binary-files", &val)) {
 				if (!val)
 					i++;
@@ -700,6 +856,8 @@ int gnu_grep(int argc, char **argv)
 		}
 	}
 
+	g.colour_on = g.colour == COLOR_ALWAYS ||
+		      (g.colour == COLOR_AUTO && !var_get("NO_COLOR") && isatty(1));
 	if (!files.len) {
 		if (g.recursive)
 			vec_pushs(&files, ".");
@@ -729,6 +887,13 @@ int gnu_grep(int argc, char **argv)
 	vec_free(&g.exclude_dir);
 	vec_free(&patterns);
 	vec_free(&files);
+	free(g.c_ms);
+	free(g.c_mc);
+	free(g.c_sl);
+	free(g.c_cx);
+	free(g.c_fn);
+	free(g.c_ln);
+	free(g.c_se);
 
 	if (any_error && !any_found)
 		return 2;

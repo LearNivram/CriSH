@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "highlight.h"
 #include "shell.h"
 
 int builtin_test(int argc, char **argv);
@@ -36,6 +37,7 @@ static HashEnt *cmd_hash;
 
 void path_hash_clear(void)
 {
+	highlight_invalidate();
 	while (cmd_hash) {
 		HashEnt *next = cmd_hash->next;
 		free(cmd_hash->name);
@@ -152,6 +154,7 @@ void func_define(const char *name, Node *body)
 	f->body = body;
 	f->next = sh.funcs;
 	sh.funcs = f;
+	highlight_invalidate();
 }
 
 void func_undefine(const char *name)
@@ -165,6 +168,7 @@ void func_undefine(const char *name)
 			free(f->name);
 			node_free(f->body);
 			free(f);
+			highlight_invalidate();
 			return;
 		}
 	}
@@ -198,6 +202,7 @@ void alias_set(const char *name, const char *value)
 	a->value = xstrdup(value);
 	a->next = sh.aliases;
 	sh.aliases = a;
+	highlight_invalidate();
 }
 
 void alias_unset(const char *name)
@@ -211,6 +216,7 @@ void alias_unset(const char *name)
 			free(a->name);
 			free(a->value);
 			free(a);
+			highlight_invalidate();
 			return;
 		}
 	}
@@ -731,6 +737,7 @@ static int exec_pipeline(Node *n)
 			if (prev_read >= 0) {
 				dup2(prev_read, 0);
 				close(prev_read);
+				redir_sync_std(0);
 			}
 			if (!last) {
 				close(fds[0]);
@@ -738,6 +745,9 @@ static int exec_pipeline(Node *n)
 				if (n->kidflags[i])
 					dup2(fds[1], 2);
 				close(fds[1]);
+				redir_sync_std(1);
+				if (n->kidflags[i])
+					redir_sync_std(2);
 			}
 			exec_node(n->kids[i]);
 			exit(sh.last_status);
@@ -1337,6 +1347,7 @@ char *exec_capture(Node *n, int *status)
 		close(fds[0]);
 		dup2(fds[1], 1);
 		close(fds[1]);
+		redir_sync_std(1);
 		exec_node(n);
 		fflush(stdout);
 		exit(sh.last_status);

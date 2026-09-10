@@ -1,0 +1,48 @@
+suite color
+
+# Everything here is CriSH-only, which is why it lives outside cases/:
+# bash has no --highlight, no `theme` and no CRISH_COLORS.
+
+esc=$(printf '\033')
+
+# Colour is off without a terminal, which is why the rest of the suite never
+# sees an escape.
+check off-when-piped   "$("$CRISH" --highlight 'ls')"                  ls
+check off-when-piped-2 "$("$CRISH" --highlight 'ls' | grep -c "$esc")" 0
+
+# ... and on when asked for.
+check always-paints    "$("$CRISH" --color=always --highlight 'ls' | grep -c "$esc")"  1
+
+# NO_COLOR beats an explicit --color=always, per no-color.org.
+check no-color-wins    "$(NO_COLOR=1 "$CRISH" --color=always --highlight 'ls')"  ls
+check never-flag       "$("$CRISH" --color=never --highlight 'ls')"              ls
+
+# The point of the whole feature: a command that exists looks different from
+# one that does not.
+exists=$("$CRISH" --color=always --highlight 'echo')
+missing=$("$CRISH" --color=always --highlight 'zzznosuchcommand')
+check exists-vs-missing "$([ "$exists" != "$missing" ] && echo differ)"  differ
+check missing-is-red    "$(printf '%s' "$missing" | grep -c '1;31')"     1
+check builtin-coloured  "$(printf '%s' "$exists" | grep -c '1;36')"      1
+
+# A word that names a real path is underlined.
+check path-underlined  "$("$CRISH" --color=always --highlight 'cat /etc/hosts' | grep -c '\[4m')"  1
+check path-plain       "$("$CRISH" --color=always --highlight 'cat /nope/nope' | grep -c '\[4m')"  0
+
+# Strings, comments and operators each get their own colour.
+check string-coloured  "$("$CRISH" --color=always --highlight 'echo "hi"' | grep -c '\[33m')"  1
+check comment-coloured "$("$CRISH" --color=always --highlight 'ls # note' | grep -c '\[90m')"  1
+
+# Themes
+check theme-default    "$("$CRISH" -c 'theme' | grep -c '^\* bold')"      1
+check theme-switch     "$("$CRISH" -c 'theme mono; theme' | grep -c '^\* mono')"  1
+check theme-unknown    "$("$CRISH" -c 'theme nosuch' 2>/dev/null; echo $?)"       1
+mono_out=$(CRISH_THEME=mono "$CRISH" --color=always --highlight 'echo')
+check theme-env        "$([ "$mono_out" != "$exists" ] && echo differ)"  differ
+
+# CRISH_COLORS overrides one role on top of the theme.
+check colors-override  "$(CRISH_COLORS='missing=7' "$CRISH" --color=always --highlight 'zzznosuch' | grep -c '\[7m')"  1
+
+# The switches exist and default on.
+check shopt-highlight  "$("$CRISH" -c 'shopt syntax_highlight' | tr -s ' ')"  "syntax_highlight on"
+check shopt-color      "$("$CRISH" -c 'shopt color' | tr -s ' ')"             "color on"

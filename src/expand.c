@@ -612,10 +612,12 @@ static char *process_substitution(const char *body, int writing)
 			close(fds[1]);
 			dup2(fds[0], 0);
 			close(fds[0]);
+			redir_sync_std(0);
 		} else {
 			close(fds[0]);
 			dup2(fds[1], 1);
 			close(fds[1]);
+			redir_sync_std(1);
 		}
 		n = parse_string(body, "process substitution", &err);
 		if (err) {
