@@ -1215,6 +1215,15 @@ static int parse_cond_body(Parser *p, Node *n)
 			drop(p);
 			return 1;
 		}
+		if (t->type == T_DLPAREN) {
+			/* inside [[ ]] there is no arithmetic command, so (( is
+			 * simply two nested groupings */
+			depth += 2;
+			vec_pushs(&n->cond, "(");
+			vec_pushs(&n->cond, "(");
+			drop(p);
+			continue;
+		}
 		if (t->type == T_LPAREN) {
 			depth++;
 			vec_pushs(&n->cond, "(");

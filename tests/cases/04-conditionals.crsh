@@ -24,6 +24,13 @@ check dd-quoted-pat "$got" literal
 [[ 1 -eq 2 || 2 -eq 2 ]] && ok dd-or yes
 [[ ! 1 -eq 2 ]] && ok dd-not yes
 [[ ( 1 -eq 1 ) && ( 2 -eq 2 ) ]] && ok dd-paren yes
+[[ ((1 -eq 1)) ]] && ok dd-double-paren yes
+
+# Homebrew's own update.sh does this, and it is easy to mis-lex (( as the
+# start of an arithmetic command rather than two groupings.
+A=1; B=1; C=
+[[ -n "$A" && (("$B" == 1 && -z "$C") || ("$B" == 2 && -n "$C")) ]] && ok dd-nested-groups yes
+[[ -n "$A" && (("$B" == 2 && -z "$C") || ("$B" == 1 && -z "$C")) ]] && ok dd-nested-or yes
 
 v=set
 [[ -v v ]] && ok dd-isset yes
