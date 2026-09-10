@@ -25,7 +25,7 @@ struct SavedFds {
 /* The built-in utilities run in this process and share stdin/stdout/stderr,
  * so a FILE's buffer and EOF flag outlive a redirection of its descriptor.
  * Every dup2 onto 0, 1 or 2 has to resynchronise the matching stream. */
-static void sync_stream(int fd)
+void redir_sync_std(int fd)
 {
 	switch (fd) {
 	case 0:
@@ -50,7 +50,7 @@ static void save_fd(SavedFds *s, int fd)
 	Save *e = xmalloc(sizeof *e);
 
 	e->fd = fd;
-	sync_stream(fd);
+	redir_sync_std(fd);
 	e->saved = fcntl(fd, F_DUPFD_CLOEXEC, 10);
 	e->next = s->list;
 	s->list = e;
@@ -141,7 +141,7 @@ SavedFds *redir_apply(Redir *r, int *ok)
 			want = r->fd >= 0 ? r->fd : 0;
 			save_fd(s, want);
 			dup2(fd, want);
-			sync_stream(want);
+			redir_sync_std(want);
 			close(fd);
 			continue;
 		}
@@ -160,7 +160,7 @@ SavedFds *redir_apply(Redir *r, int *ok)
 			want = r->fd >= 0 ? r->fd : 0;
 			save_fd(s, want);
 			dup2(fd, want);
-			sync_stream(want);
+			redir_sync_std(want);
 			close(fd);
 			continue;
 		}
@@ -188,7 +188,7 @@ SavedFds *redir_apply(Redir *r, int *ok)
 					}
 					save_fd(s, want);
 					dup2((int)n, want);
-					sync_stream(want);
+					redir_sync_std(want);
 				} else {
 					/* >&file behaves like >file */
 					int fd = open(target,
@@ -204,7 +204,7 @@ SavedFds *redir_apply(Redir *r, int *ok)
 					}
 					save_fd(s, want);
 					dup2(fd, want);
-					sync_stream(want);
+					redir_sync_std(want);
 					close(fd);
 				}
 			}
@@ -232,12 +232,12 @@ SavedFds *redir_apply(Redir *r, int *ok)
 			}
 			save_fd(s, want);
 			dup2(fd, want);
-			sync_stream(want);
+			redir_sync_std(want);
 			close(fd);
 			if (r->type == R_ALL_OUT || r->type == R_ALL_APPEND) {
 				save_fd(s, 2);
 				dup2(want, 2);
-				sync_stream(2);
+				redir_sync_std(2);
 			}
 		}
 		free(target);
@@ -252,14 +252,14 @@ void redir_restore(SavedFds *s)
 	if (!s)
 		return;
 	for (e = s->list; e; e = e->next) {
-		sync_stream(e->fd);
+		redir_sync_std(e->fd);
 		if (e->saved >= 0) {
 			dup2(e->saved, e->fd);
 			close(e->saved);
 		} else {
 			close(e->fd);
 		}
-		sync_stream(e->fd);
+		redir_sync_std(e->fd);
 	}
 	while (s->list) {
 		Save *next = s->list->next;

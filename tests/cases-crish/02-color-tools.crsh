@@ -6,11 +6,17 @@ d=$(scratch)
 # grep paints the match, and only the match.
 check grep-plain       "$(echo aXb | grep X)"                              aXb
 check grep-never       "$(echo aXb | grep --color=never X)"                aXb
-check grep-always      "$(echo aXb | grep --color=always X | grep -c "$esc")"  1
-check grep-match-only  "$(echo aXb | grep --color=always X | sed "s/$esc\[[0-9;]*m//g")"  aXb
-check grep-ms          "$(echo aXb | grep --color=always X | grep -c '01;31')"  1
-check grep-colors-env  "$(GREP_COLORS='ms=01;36' grep --color=always X <<< aXb | grep -c '01;36')"  1
-check grep-o-painted   "$(echo abc123 | grep --color=always -o '[0-9]*' | grep -c "$esc")"  1
+# Spelled out rather than counted, so a failure shows what was actually
+# emitted instead of just "not 1".
+painted=$(echo aXb | grep --color=always X)
+check grep-always      "$(printf '%s' "$painted" | sed "s/$esc/E/g")"   'aE[01;31mXE[mb'
+check grep-match-only  "$(printf '%s' "$painted" | sed "s/$esc\[[0-9;]*m//g")"  aXb
+
+painted=$(GREP_COLORS='ms=01;36' grep --color=always X <<< aXb)
+check grep-colors-env  "$(printf '%s' "$painted" | sed "s/$esc/E/g")"   'aE[01;36mXE[mb'
+
+painted=$(echo abc123 | grep --color=always -o '[0-9]*')
+check grep-o-painted   "$(printf '%s' "$painted" | sed "s/$esc/E/g")"   'E[01;31m123E[m'
 # a pipe gets none, so a script that greps into a file is unaffected
 check grep-auto-piped  "$(echo aXb | grep --color=auto X)"                 aXb
 
@@ -23,11 +29,19 @@ chmod +x "$d/lsdir/run.sh"
 check ls-piped-lines   "$(ls "$d/lsdir" | tr '\n' ',')"                    "plain.txt,run.sh,sub,"
 check ls-piped-plain   "$(ls "$d/lsdir" | grep -c "$esc")"                 0
 # plain.txt gets no escape at all, the way GNU leaves ordinary files alone
-check ls-always        "$(ls --color=always "$d/lsdir" | grep -c "$esc")"  2
-check ls-dir-blue      "$(ls --color=always -d "$d/lsdir/sub" | grep -c '1;34')"  1
-check ls-exec-green    "$(ls --color=always -d "$d/lsdir/run.sh" | grep -c '1;32')"  1
-check ls-plain-unpainted "$(ls --color=always -d "$d/lsdir/plain.txt" | grep -c "$esc")"  0
-check ls-ls-colors     "$(LS_COLORS='di=01;35' ls --color=always -d "$d/lsdir/sub" | grep -c '01;35')"  1
+check ls-always        "$(ls --color=always "$d/lsdir" | sed "s/$esc\[[0-9;]*m//g" | tr '\n' ',')"  "plain.txt,run.sh,sub,"
+dir_painted=$(cd "$d/lsdir" && ls --color=always -d sub)
+exe_painted=$(cd "$d/lsdir" && ls --color=always -d run.sh)
+txt_painted=$(cd "$d/lsdir" && ls --color=always -d plain.txt)
+check ls-dir-blue      "$(printf '%s' "$dir_painted" | sed "s/$esc/E/g")"  'E[1;34msubE[0m'
+check ls-exec-green    "$(printf '%s' "$exe_painted" | sed "s/$esc/E/g")"  'E[1;32mrun.shE[0m'
+check ls-plain-unpainted "$txt_painted"                                    plain.txt
+
+# LS_COLORS wins, and is re-read when it changes within one shell
+dir_painted=$(cd "$d/lsdir" && LS_COLORS='di=01;35' ls --color=always -d sub)
+check ls-ls-colors     "$(printf '%s' "$dir_painted" | sed "s/$esc/E/g")"  'E[01;35msubE[0m'
+dir_painted=$(cd "$d/lsdir" && ls --color=always -d sub)
+check ls-colors-reread "$(printf '%s' "$dir_painted" | sed "s/$esc/E/g")"  'E[1;34msubE[0m'
 
 # ls: the GNU flags the BSD one does not have.
 check ls-group-dirs    "$(ls --group-directories-first "$d/lsdir" | head -1)"  sub

@@ -737,6 +737,7 @@ static int exec_pipeline(Node *n)
 			if (prev_read >= 0) {
 				dup2(prev_read, 0);
 				close(prev_read);
+				redir_sync_std(0);
 			}
 			if (!last) {
 				close(fds[0]);
@@ -744,6 +745,9 @@ static int exec_pipeline(Node *n)
 				if (n->kidflags[i])
 					dup2(fds[1], 2);
 				close(fds[1]);
+				redir_sync_std(1);
+				if (n->kidflags[i])
+					redir_sync_std(2);
 			}
 			exec_node(n->kids[i]);
 			exit(sh.last_status);
@@ -1343,6 +1347,7 @@ char *exec_capture(Node *n, int *status)
 		close(fds[0]);
 		dup2(fds[1], 1);
 		close(fds[1]);
+		redir_sync_std(1);
 		exec_node(n);
 		fflush(stdout);
 		exit(sh.last_status);

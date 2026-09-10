@@ -74,7 +74,7 @@ typedef struct SuffixRule {
 
 static char *ls_key[16]; /* di ln ex fi pi so bd cd or mi */
 static SuffixRule *ls_suffixes;
-static int ls_colors_read;
+static char *ls_colors_seen; /* the LS_COLORS the table was built from */
 
 enum { K_DI, K_LN, K_EX, K_FI, K_PI, K_SO, K_BD, K_CD, K_OR, K_MI, K_COUNT };
 
@@ -86,11 +86,31 @@ static void read_ls_colors(void)
 	const char *spec;
 	char *copy, *save = NULL, *item;
 
-	if (ls_colors_read)
-		return;
-	ls_colors_read = 1;
 	spec = var_get("LS_COLORS");
-	if (!spec || !*spec)
+	if (!spec)
+		spec = "";
+	/* the shell stays alive between calls, so rebuild when it changed */
+	if (ls_colors_seen && strcmp(ls_colors_seen, spec) == 0)
+		return;
+	{
+		int i;
+
+		for (i = 0; i < K_COUNT; i++) {
+			free(ls_key[i]);
+			ls_key[i] = NULL;
+		}
+		while (ls_suffixes) {
+			SuffixRule *r = ls_suffixes;
+
+			ls_suffixes = r->next;
+			free(r->suffix);
+			free(r->body);
+			free(r);
+		}
+	}
+	free(ls_colors_seen);
+	ls_colors_seen = xstrdup(spec);
+	if (!*spec)
 		return;
 	copy = xstrdup(spec);
 	for (item = strtok_r(copy, ":", &save); item; item = strtok_r(NULL, ":", &save)) {

@@ -392,6 +392,10 @@ size_t glob_expand(const char *pattern, Vec *out);
 typedef struct SavedFds SavedFds;
 SavedFds *redir_apply(Redir *r, int *ok);
 void redir_restore(SavedFds *s);
+/* The built-in utilities share this process's stdin/stdout/stderr, so a FILE's
+ * buffer and EOF flag outlive a redirection of its descriptor.  Anything that
+ * moves fd 0, 1 or 2 by hand has to say so. */
+void redir_sync_std(int fd);
 
 /* -------------------------------------------------------------------- jobs */
 
