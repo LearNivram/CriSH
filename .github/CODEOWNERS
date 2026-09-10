@@ -1,0 +1,7 @@
+# Everything needs a maintainer's eye.
+*                       @LearNivram
+
+# The compatibility pages are the project's promise; treat them as code.
+/docs/gnu.md            @LearNivram
+/docs/bash.md           @LearNivram
+/tests/                 @LearNivram

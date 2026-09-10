@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build and publish
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: The tag must match src/shell.h
+        run: |
+          tag="${GITHUB_REF_NAME:-${{ github.event.inputs.tag }}}"
+          want="${tag#v}"
+          have=$(sed -n 's/.*CRISH_VERSION "\(.*\)".*/\1/p' src/shell.h)
+          echo "tag $tag, source says $have"
+          if [ "$want" != "$have" ]; then
+            echo "CRISH_VERSION in src/shell.h is $have but the tag is $tag" >&2
+            exit 1
+          fi
+
+      - name: Build the universal binary
+        run: CFLAGS='-O2 -Werror' ./build.sh
+
+      - name: Test it
+        run: ./build/crish tests/run.crsh
+
+      - name: Stage the release
+        run: |
+          mkdir -p dist
+          cp build/crish dist/crish-macos-universal
+          cd dist
+          shasum -a 256 crish-macos-universal > checksums.txt
+          cat checksums.txt
+          lipo -archs crish-macos-universal
+
+      - name: Release notes
+        run: |
+          tag="${GITHUB_REF_NAME:-${{ github.event.inputs.tag }}}"
+          prev=$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)
+          {
+            echo "## Install"
+            echo
+            echo '```sh'
+            echo 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/'"$GITHUB_REPOSITORY"'/master/install.sh)"'
+            echo '```'
+            echo
+            echo "Or \`crish update\` from an older version."
+            echo
+            echo "## Verify"
+            echo
+            echo '```sh'
+            echo 'shasum -a 256 -c checksums.txt --ignore-missing'
+            echo '```'
+            echo
+            if [ -n "$prev" ]; then
+              echo "## Changes since $prev"
+              echo
+              git log --no-merges --pretty='- %s' "$prev..$tag"
+            else
+              echo "## First release"
+              echo
+              echo "See the README for what CriSH does."
+            fi
+          } > dist/NOTES.md
+          cat dist/NOTES.md
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          body_path: dist/NOTES.md
+          files: |
+            dist/crish-macos-universal
+            dist/checksums.txt

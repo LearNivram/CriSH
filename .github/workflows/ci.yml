@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: build and test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-14, macos-13]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with warnings as errors
+        run: CFLAGS='-O2 -Werror' make
+
+      - name: Version
+        run: ./build/crish --version
+
+      - name: Test suite
+        run: ./build/crish tests/run.crsh
+
+      - name: The gaps CriSH exists to close
+        run: |
+          set -e
+          ./build/crish -c 'declare -A m; m[k]=v; [ "${m[k]}" = v ]'
+          ./build/crish -c 'v=x; [ "${v^^}" = X ]'
+          ./build/crish -c 'printf "a\nb\n" > f; mapfile -t l < f; [ "${#l[@]}" = 2 ]'
+          ./build/crish -c 'echo hi > g; sed -i "s/hi/ho/" g; [ "$(cat g)" = ho ]'
+          ./build/crish -c 'timeout 1 sleep 5; [ $? -eq 124 ]'
+          ./build/crish -c '[ "$(date -u -d @0 +%F)" = 1970-01-01 ]'
+          ./build/crish -c 'printf ab > h; [ "$(stat -c %s h)" = 2 ]'
+          ./build/crish -c '[ "$(printf abc | sha256sum | cut -c1-8)" = ba7816bf ]'
+          echo "all gap checks passed"
+
+  universal:
+    name: universal binary
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build for arm64 and x86_64
+        run: ./build.sh
+
+      - name: Both slices must be present
+        run: |
+          archs=$(lipo -archs build/crish)
+          echo "architectures: $archs"
+          case "$archs" in
+            *arm64*) ;; *) echo "no arm64 slice" >&2; exit 1 ;;
+          esac
+          case "$archs" in
+            *x86_64*) ;; *) echo "no x86_64 slice" >&2; exit 1 ;;
+          esac
+
+      - name: Nothing but libSystem
+        run: |
+          otool -L build/crish | tail -n +2 | grep -v '^build/crish' > libs.txt || true
+          cat libs.txt
+          if grep -qv 'libSystem' libs.txt; then
+            echo "unexpected dynamic library" >&2
+            exit 1
+          fi
+
+      - name: Test the universal build
+        run: ./build/crish tests/run.crsh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crish-macos-universal
+          path: build/crish
+          retention-days: 14
+
+  sanitizers:
+    name: address and undefined behaviour
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with sanitizers
+        run: CFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' make
+
+      - name: Test suite under the sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./build/crish tests/run.crsh
+
+  differential:
+    name: same suite under bash 5 and GNU coreutils
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The reference toolchain
+        run: |
+          bash --version | head -1
+          sed --version | head -1
+          awk --version 2>/dev/null | head -1 || awk -W version 2>&1 | head -1
+          sort --version | head -1
+
+      - name: Run the suite under real bash and real GNU tools
+        run: bash tests/run.crsh
+
+      - name: Explain
+        if: failure()
+        run: |
+          echo "This job runs tests/run.crsh under bash 5 with GNU coreutils."
+          echo "A failure here means the suite itself encodes something that is"
+          echo "not real GNU behaviour, so the compatibility claim would be"
+          echo "wrong. Fix the test, not the shell."
+
+  shell-scripts:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check install.sh and build.sh
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck >/dev/null
+          shellcheck --severity=warning install.sh build.sh tools/bench.sh
