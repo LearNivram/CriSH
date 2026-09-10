@@ -39,17 +39,30 @@ sudo make uninstall
 
 ## While working on it
 
-A debug build with the sanitisers, which is what CI runs on every push:
+A debug build with UndefinedBehaviorSanitizer, which is what CI runs on every
+push:
 
 ```sh
 make clean
-CFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' make
-./build/crish tests/run.crsh
+CFLAGS='-O1 -g -fsanitize=undefined -fno-omit-frame-pointer' make
+UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 ./build/crish tests/run.crsh
 ```
 
-ASan will report a leak summary on exit; CriSH does not free everything at
-shutdown on purpose, so run with `ASAN_OPTIONS=detect_leaks=0` unless you are
-specifically hunting leaks.
+AddressSanitizer is worth running too, with one caveat: on recent macOS
+releases Apple's bundled ASan runtime can deadlock inside its own initializer,
+before `main()` is reached, and the process spins at 100% CPU forever. If that
+happens it is a toolchain problem, not a CriSH one — check with a trivial
+command first:
+
+```sh
+CFLAGS='-O1 -g -fsanitize=address' make
+ASAN_OPTIONS=detect_leaks=0 ./build/crish -c 'echo ok'   # hangs?  ASan, not CriSH
+ASAN_OPTIONS=detect_leaks=0 ./build/crish tests/run.crsh
+```
+
+CI runs ASan in an advisory job that does exactly this check and does not block
+the build when the runtime refuses to start. Leak detection is off because
+CriSH deliberately does not free everything at shutdown.
 
 Warnings are errors in CI. Build with them locally before you push:
 

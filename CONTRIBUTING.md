@@ -90,9 +90,12 @@ CFLAGS='-O2 -Werror' make
 and one sanitiser run before you push is a good habit:
 
 ```sh
-make clean && CFLAGS='-O1 -g -fsanitize=address,undefined' make && \
-  ASAN_OPTIONS=detect_leaks=0 ./build/crish tests/run.crsh
+make clean && CFLAGS='-O1 -g -fsanitize=undefined' make && \
+  UBSAN_OPTIONS=halt_on_error=1 ./build/crish tests/run.crsh
 ```
+
+See [building](docs/building.md#while-working-on-it) for why AddressSanitizer
+gets its own paragraph.
 
 ## Review
 
