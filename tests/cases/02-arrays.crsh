@@ -1,0 +1,42 @@
+suite arrays
+
+a=(one two three)
+check index          "${a[1]}"                  two
+check count          "${#a[@]}"                 3
+check all            "${a[*]}"                  "one two three"
+check last           "${a[-1]}"                 three
+check keys           "${!a[*]}"                 "0 1 2"
+a+=(four)
+check append         "${#a[@]}"                 4
+a[10]=ten
+check sparse         "${a[10]}"                 ten
+check sparse-count   "${#a[@]}"                 5
+
+count_args() { echo $#; }
+check quoted-splat   "$(count_args "${a[@]}")"  5
+
+# associative arrays, which /bin/bash 3.2 on macOS cannot do at all
+declare -A m
+m[alpha]=1
+m[beta]=2
+m["with space"]=3
+check assoc-get      "${m[alpha]}"              1
+check assoc-space    "${m["with space"]}"       3
+check assoc-count    "${#m[@]}"                 3
+check assoc-missing  "${m[nope]:-none}"         none
+unset 'm[alpha]'
+check assoc-unset    "${#m[@]}"                 2
+
+declare -A counts
+for w in a b a c a; do
+  counts[$w]=$(( ${counts[$w]:-0} + 1 ))
+done
+check assoc-tally    "${counts[a]}"             3
+
+# mapfile, also absent from bash 3.2
+printf 'l1\nl2\nl3\n' > "$(scratch)/lines"
+mapfile -t got < "$(scratch)/lines"
+check mapfile-count  "${#got[@]}"               3
+check mapfile-value  "${got[1]}"                l2
+readarray -t got2 < "$(scratch)/lines"
+check readarray      "${got2[2]}"               l3

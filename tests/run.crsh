@@ -1,0 +1,36 @@
+# run.crsh - the whole suite.
+#
+#   crish tests/run.crsh        # under CriSH
+#   bash  tests/run.crsh        # under bash 5 + GNU coreutils, for comparison
+#
+# Every check must produce the same answer under both.
+
+LC_ALL=C
+export LC_ALL
+
+here=$(dirname "$0")
+. "$here/lib.crsh"
+
+SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/crish-tests-XXXXXX")
+
+printf '\n  CriSH test suite  (%s)\n\n' "${SHELL_TYPE:-bash}"
+
+suite_files=("$here"/cases/*.crsh)
+suite_total=${#suite_files[@]}
+suite_index=0
+
+for suite_file in "${suite_files[@]}"; do
+  suite_index=$((suite_index + 1))
+  suite_name=${suite_file##*/}
+  suite_name=${suite_name%.crsh}
+  if [ -z "$CI" ]; then progress "$suite_index" "$suite_total" "$suite_name"; fi
+  . "$suite_file"
+done
+
+if [ -z "$CI" ]; then
+  progress "$suite_total" "$suite_total" "done"
+  printf '\n'
+fi
+
+if [ -n "$SCRATCH" ]; then rm -rf "$SCRATCH"; fi
+summary

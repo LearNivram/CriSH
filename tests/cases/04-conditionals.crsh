@@ -1,0 +1,37 @@
+suite conditionals
+
+[ 1 -eq 1 ] && ok test-eq yes
+[ abc = abc ] && ok test-str yes
+[ ! -e /nonexistent-crish ] && ok test-missing yes
+[ -d / ] && ok test-dir yes
+
+[[ 1 -lt 2 ]] && ok dd-lt yes
+[[ abc == a* ]] && ok dd-glob yes
+[[ abc != x* ]] && ok dd-notglob yes
+[[ "a b" == "a b" ]] && ok dd-quoted yes
+[[ abc =~ ^a.c$ ]] && ok dd-regex yes
+
+if [[ "2026-09-10" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})$ ]]; then
+  check regex-group-1 "${BASH_REMATCH[1]}" 2026
+  check regex-group-3 "${BASH_REMATCH[3]}" 10
+  check regex-whole   "${BASH_REMATCH[0]}" 2026-09-10
+fi
+
+[[ abc == "a*" ]] && got=matched || got=literal
+check dd-quoted-pat "$got" literal
+
+[[ 1 -eq 1 && 2 -eq 2 ]] && ok dd-and yes
+[[ 1 -eq 2 || 2 -eq 2 ]] && ok dd-or yes
+[[ ! 1 -eq 2 ]] && ok dd-not yes
+[[ ( 1 -eq 1 ) && ( 2 -eq 2 ) ]] && ok dd-paren yes
+
+v=set
+[[ -v v ]] && ok dd-isset yes
+[[ ! -v unset_name_here ]] && ok dd-notset yes
+
+check and-or-value   "$(false || echo fallback)"  fallback
+check and-chain      "$(true && echo reached)"    reached
+check negate         "$(! false && echo negated)" negated
+
+true;  check status-true  "$?" 0
+false; check status-false "$?" 1

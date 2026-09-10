@@ -1,0 +1,50 @@
+# lib.crsh - the tiny harness the suite is built on.
+# Runs unchanged under CriSH and under bash 5 with GNU coreutils, which is
+# what makes the differential job in CI meaningful.
+
+passed=0
+failed=0
+current="?"
+
+suite() {
+  current=$1
+}
+
+check() {
+  if [ "$2" = "$3" ]; then
+    passed=$((passed + 1))
+  else
+    failed=$((failed + 1))
+    printf '\r\033[K  FAIL  %-16s %-26s got [%s] want [%s]\n' "$current" "$1" "$2" "$3"
+  fi
+}
+
+ok() {
+  check "$1" "$2" yes
+}
+
+progress() {
+  width=24
+  filled=$(( $1 * width / $2 ))
+  bar=""
+  step=0
+  while [ "$step" -lt "$filled" ]; do bar="$bar#"; step=$((step + 1)); done
+  while [ "$step" -lt "$width" ]; do bar="$bar."; step=$((step + 1)); done
+  printf '\r\033[K  \033[32m%s\033[0m  %2d/%d  \033[90m%s\033[0m' "$bar" "$1" "$2" "$3"
+}
+
+summary() {
+  total=$((passed + failed))
+  if [ "$failed" -eq 0 ]; then
+    printf '  \033[32mall %d checks passed\033[0m\n\n' "$total"
+    exit 0
+  fi
+  printf '  \033[31m%d of %d checks failed\033[0m\n\n' "$failed" "$total"
+  exit 1
+}
+
+# A scratch directory each case can use freely.  It is created once by
+# run.crsh, because a $(...) call would make it in a subshell and lose it.
+scratch() {
+  printf '%s' "$SCRATCH"
+}

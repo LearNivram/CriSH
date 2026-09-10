@@ -1,0 +1,31 @@
+suite strings
+
+check printf-str     "$(printf '%s|%s' a b)"                a\|b
+check printf-int     "$(printf '%05d' 42)"                  00042
+check printf-float   "$(printf '%.3f' 3.14159)"             3.142
+check printf-hex     "$(printf '%x' 255)"                   ff
+check printf-recycle "$(printf '%s,' a b c)"                "a,b,c,"
+check printf-escape  "$(printf 'a\tb' | od -c 2>/dev/null | head -1 | grep -c '\\t' || echo 1)"  1
+check printf-percent "$(printf '100%%')"                    "100%"
+check printf-var     "$(printf -v out '%s-%s' x y; echo "$out")"  "x-y"
+
+check echo-n         "$(echo -n abc)"                       abc
+check echo-e         "$(echo -e 'a\tb' | tr '\t' '-')"      "a-b"
+check echo-plain     "$(echo 'a\tb')"                       'a\tb'
+
+check ansi-quote     "$(printf '%s' $'a\tb' | tr '\t' '-')" "a-b"
+check ansi-newline   "$(printf '%s' $'x\ny' | tr '\n' '-')" "x-y"
+
+check read-line      "$(printf 'value\n' | { read -r v; echo "$v"; })"  value
+check read-fields    "$(printf 'a b c\n' | { read -r x y z; echo "$z$y$x"; })"  cba
+check read-rest      "$(printf 'a b c\n' | { read -r x rest; echo "$rest"; })"  "b c"
+check read-array     "$(printf 'a b c\n' | { read -ra arr; echo "${#arr[@]}"; })"  3
+
+check quoting-single "$(echo 'a$b`c')"                      'a$b`c'
+check quoting-double "$(x=1; echo "v=$x")"                  "v=1"
+check quoting-mixed  "$(x=1; echo "a"'b'"$x")"              ab1
+check backslash      "$(echo a\ b)"                         "a b"
+
+check case-conv-up   "$(v=abc; echo "${v@U}")"              ABC
+check case-conv-low  "$(v=ABC; echo "${v@L}")"              abc
+check quote-op       "$(v='a b'; echo "${v@Q}")"            "'a b'"

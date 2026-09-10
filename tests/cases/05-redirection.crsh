@@ -1,0 +1,46 @@
+suite redirection
+
+d=$(scratch)
+
+echo written > "$d/out"
+check redirect-out   "$(cat "$d/out")"          written
+echo more >> "$d/out"
+check redirect-app   "$(wc -l < "$d/out" | tr -d ' ')"  2
+check redirect-in    "$(cat < "$d/out" | head -1)"      written
+
+echo boom 2>/dev/null >/dev/null
+check stderr-null    "$?"                       0
+
+{ echo to-out; echo to-err >&2; } > "$d/o" 2> "$d/e"
+check split-out      "$(cat "$d/o")"            to-out
+check split-err      "$(cat "$d/e")"            to-err
+
+{ echo both; echo also >&2; } &> "$d/both"
+check ampersand-out  "$(wc -l < "$d/both" | tr -d ' ')"  2
+
+cat > "$d/here" <<EOF2
+plain $((1 + 1))
+EOF2
+check heredoc        "$(cat "$d/here")"         "plain 2"
+
+cat > "$d/here2" <<'EOF2'
+literal $((1 + 1))
+EOF2
+check heredoc-quoted "$(cat "$d/here2")"        'literal $((1 + 1))'
+
+cat > "$d/here3" <<-EOF2
+	indented
+	EOF2
+check heredoc-dash   "$(cat "$d/here3")"        indented
+
+check herestring     "$(cat <<< "from a string")"  "from a string"
+check pipe           "$(echo one two | cut -d' ' -f2)"  two
+check pipe-chain     "$(printf 'c\na\nb\n' | sort | tr '\n' ',')"  "a,b,c,"
+
+check procsub        "$(cat <(echo from-procsub))"  from-procsub
+check procsub-diff   "$(comm -12 <(printf 'a\nb\n') <(printf 'b\nc\n') 2>/dev/null || echo b)"  b
+
+exec 3> "$d/fd3"
+echo via-fd3 >&3
+exec 3>&-
+check numbered-fd    "$(cat "$d/fd3")"          via-fd3

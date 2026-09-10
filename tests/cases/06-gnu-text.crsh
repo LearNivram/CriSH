@@ -1,0 +1,52 @@
+suite gnu-text
+
+d=$(scratch)
+printf 'alpha 3\nbeta 1\ngamma 2\n' > "$d/rows"
+
+check grep-basic     "$(grep beta "$d/rows")"           "beta 1"
+check grep-count     "$(grep -c a "$d/rows")"           3
+check grep-invert    "$(grep -v -c beta "$d/rows")"     2
+check grep-only      "$(echo abc123def | grep -o '[0-9]\+')"  123
+check grep-ere       "$(echo abc123 | grep -oE '[a-z]+')"     abc
+check grep-perl      "$(echo abc123 | grep -oP '\d+')"        123
+check grep-word      "$(printf 'cat\ncatalog\n' | grep -cw cat)"  1
+check grep-icase     "$(printf 'ABC\n' | grep -ci abc)"       1
+check grep-line      "$(printf 'ab\nabc\n' | grep -cx ab)"    1
+grep -q gamma "$d/rows"; check grep-quiet "$?" 0
+
+check sed-sub        "$(echo aaa | sed 's/a/b/')"       baa
+check sed-global     "$(echo aaa | sed 's/a/b/g')"      bbb
+check sed-nth        "$(echo aaa | sed 's/a/b/2')"      aba
+check sed-group      "$(echo ab | sed -E 's/(a)(b)/\2\1/')"  ba
+check sed-case       "$(echo ab | sed 's/\(a\)/\U\1/')"      Ab
+check sed-print      "$(printf 'x\ny\n' | sed -n '2p')"      y
+check sed-delete     "$(printf 'x\ny\n' | sed '1d')"         y
+check sed-range      "$(printf '1\n2\n3\n4\n' | sed -n '2,3p' | tr '\n' ',')"  "2,3,"
+check sed-addr-regex "$(printf 'a\nb\nc\n' | sed -n '/b/p')"  b
+check sed-append     "$(printf 'x\n' | sed 'a\
+added')"                                                      "x
+added"
+check sed-transliterate "$(echo abc | sed 'y/abc/xyz/')"      xyz
+
+# The BSD sed trap: -i must take its suffix attached, never the next argument.
+printf 'before\n' > "$d/inplace"
+sed -i 's/before/after/' "$d/inplace"
+check sed-inplace    "$(cat "$d/inplace")"      after
+sed -i.bak 's/after/final/' "$d/inplace"
+check sed-inplace-bak-new "$(cat "$d/inplace")"      final
+check sed-inplace-bak-old "$(cat "$d/inplace.bak")"  after
+
+check awk-field      "$(echo 'a b c' | awk '{print $2}')"       b
+check awk-nf         "$(echo 'a b c' | awk '{print NF}')"       3
+check awk-sum        "$(printf '1\n2\n3\n' | awk '{s+=$1} END{print s}')"  6
+check awk-fs         "$(echo 'a:b:c' | awk -F: '{print $3}')"   c
+check awk-printf     "$(awk 'BEGIN{printf "%05.2f", 3.14159}')" 03.14
+check awk-cond       "$(printf '1\n5\n' | awk '$1 > 3')"        5
+check awk-assoc      "$(awk 'BEGIN{a["k"]="v"; print a["k"]}')" v
+check awk-func       "$(awk 'function d(x){return x*2} BEGIN{print d(21)}')"  42
+check awk-substr     "$(awk 'BEGIN{print substr("hello",2,3)}')"  ell
+check awk-gsub       "$(awk 'BEGIN{s="aaa"; gsub(/a/,"b",s); print s}')"  bbb
+check awk-split      "$(awk 'BEGIN{n=split("a:b:c",p,":"); print n p[2]}')"  3b
+check awk-var        "$(awk -v x=7 'BEGIN{print x*6}')"         42
+check awk-ofs        "$(echo 'a b' | awk 'BEGIN{OFS="-"} {$1=$1; print}')"  a-b
+check awk-range      "$(printf '1\n2\n3\n4\n' | awk 'NR==2,NR==3' | tr '\n' ',')"  "2,3,"

@@ -1,0 +1,74 @@
+suite control
+
+r=""
+for i in 1 2 3; do r="$r$i"; done
+check for-list       "$r"                       123
+
+r=""
+for ((i = 0; i < 3; i++)); do r="$r$i"; done
+check for-arith      "$r"                       012
+
+r=""; i=0
+while [ $i -lt 3 ]; do r="$r$i"; i=$((i+1)); done
+check while          "$r"                       012
+
+r=""; i=0
+until [ $i -ge 3 ]; do r="$r$i"; i=$((i+1)); done
+check until          "$r"                       012
+
+r=""
+for i in 1 2 3 4 5; do
+  [ $i -eq 2 ] && continue
+  [ $i -eq 4 ] && break
+  r="$r$i"
+done
+check break-continue "$r"                       13
+
+case abc in
+  x*) got=x ;;
+  a*) got=a ;;
+  *)  got=other ;;
+esac
+check case-glob      "$got"                     a
+
+case 5 in
+  1|2|3) got=low ;;
+  4|5|6) got=mid ;;
+  *)     got=high ;;
+esac
+check case-alternate "$got"                     mid
+
+got=""
+case b in
+  a) got="$got-a" ;;
+  b) got="$got-b" ;&
+  c) got="$got-c" ;;
+  d) got="$got-d" ;;
+esac
+check case-fallthru  "$got"                     "-b-c"
+
+if true; then got=then; else got=else; fi
+check if-then        "$got"                     then
+if false; then got=then; elif true; then got=elif; else got=else; fi
+check if-elif        "$got"                     elif
+
+greet() { echo "hi $1"; }
+check function       "$(greet world)"           "hi world"
+
+outer() { inner() { echo nested; }; inner; }
+check nested-fn      "$(outer)"                 nested
+
+scoped() { local x=inner; echo "$x"; }
+x=outer
+scoped >/dev/null
+check local-scope    "$x"                       outer
+
+adder() { echo $(( $1 + $2 )); }
+check fn-args        "$(adder 20 22)"           42
+
+retval() { return 7; }
+retval
+check fn-return      "$?"                       7
+
+recurse() { [ "$1" -le 0 ] && { echo 0; return; }; echo $(( $1 + $(recurse $(( $1 - 1 ))) )); }
+check recursion      "$(recurse 4)"             10

@@ -1,0 +1,54 @@
+suite options
+
+d=$(scratch)
+mkdir -p "$d/globtest/sub"
+: > "$d/globtest/a.txt"
+: > "$d/globtest/b.txt"
+: > "$d/globtest/sub/c.txt"
+
+check glob-star      "$(cd "$d/globtest" && echo *.txt)"          "a.txt b.txt"
+check glob-question  "$(cd "$d/globtest" && echo ?.txt)"          "a.txt b.txt"
+check glob-class     "$(cd "$d/globtest" && echo [ab].txt)"       "a.txt b.txt"
+check glob-nomatch   "$(cd "$d/globtest" && echo z*.txt)"         "z*.txt"
+
+shopt -s nullglob
+check glob-nullglob  "$(cd "$d/globtest" && echo z*.txt)"         ""
+shopt -u nullglob
+
+shopt -s globstar
+check globstar       "$(cd "$d/globtest" && echo **/*.txt)"       "a.txt b.txt sub/c.txt"
+shopt -u globstar
+
+shopt -s extglob
+check extglob-at     "$(cd "$d/globtest" && echo @(a|b).txt)"     "a.txt b.txt"
+check extglob-not    "$(cd "$d/globtest" && echo !(a).txt)"       "b.txt"
+
+shopt -s nocasematch
+[[ ABC == abc ]] && ok nocasematch yes
+shopt -u nocasematch
+
+set -u
+unset_ok=$( (echo "${maybe:-default}") )
+check nounset-default "$unset_ok"                                 default
+set +u
+
+check pipefail-off   "$( (false | true); echo $? )"               0
+set -o pipefail
+check pipefail-on    "$( (false | true); echo $? )"               1
+set +o pipefail
+
+(set -e; false; echo reached) > "$d/errexit" 2>&1
+check errexit-status "$?"                                         1
+check errexit-quiet  "$(cat "$d/errexit")"                        ""
+
+
+check ifs-split      "$(IFS=:; set -- $(echo 'a:b:c'); echo $#)"  3
+check ifs-restore    "$(echo 'a b' | { read -r x y; echo "$x-$y"; })"  "a-b"
+
+alias greet_alias='echo aliased'
+shopt -s expand_aliases
+check alias          "$(greet_alias)"                             aliased
+unalias greet_alias
+
+check positional     "$(set -- p q r; echo "$#:$1:$3")"           "3:p:r"
+check shift          "$(set -- p q r; shift; echo "$*")"          "q r"

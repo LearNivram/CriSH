@@ -1,0 +1,87 @@
+suite gnu-tools
+
+d=$(scratch)
+
+# timeout does not exist on a stock macOS at all
+timeout 1 sleep 5
+check timeout-fires  "$?"                       124
+timeout 5 true
+check timeout-passes "$?"                       0
+
+# BSD date has no -d and no --iso-8601
+check date-epoch     "$(date -u -d @0 '+%Y-%m-%d %H:%M:%S')"    "1970-01-01 00:00:00"
+check date-seconds   "$(date -u -d '1970-01-02' '+%s')"          86400
+check date-iso       "$(date -u -d @86400 --iso-8601)"           1970-01-02
+check date-relative  "$(date -u -d '1970-01-10 -2 days' '+%F')"  1970-01-08
+check date-offset    "$(date -u -d @0 '+%:z')"                   "+00:00"
+check date-rfc       "$(date -u -d @0 -R)"      "Thu, 01 Jan 1970 00:00:00 +0000"
+
+# BSD stat has no -c
+echo 12345 > "$d/five"
+check stat-size      "$(stat -c %s "$d/five")"  6
+check stat-name      "$(stat -c %n "$d/five")"  "$d/five"
+
+check sha256         "$(printf abc | sha256sum | cut -d' ' -f1)"  \
+                     ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+check sha1           "$(printf abc | sha1sum | cut -d' ' -f1)"    \
+                     a9993e364706816aba3e25717850c26c9cd0d89d
+check md5            "$(printf abc | md5sum | cut -d' ' -f1)"     \
+                     900150983cd24fb0d6963f7d28e17f72
+check base64-enc     "$(printf abc | base64 -w0)"                 YWJj
+check base64-dec     "$(printf 'YWJj' | base64 -d)"               abc
+
+check readlink-f     "$(readlink -f /etc | head -c 4)"            /pri
+check realpath       "$(realpath / )"                             /
+
+check seq-plain      "$(seq 3 | tr '\n' ' ')"                     "1 2 3 "
+check seq-width      "$(seq -w 8 10 | tr '\n' ' ')"               "08 09 10 "
+check seq-sep        "$(seq -s, 1 3)"                             "1,2,3"
+check seq-step       "$(seq 0 5 10 | tr '\n' ' ')"                "0 5 10 "
+
+check sort-numeric   "$(printf '10\n9\n' | sort -n | head -1)"    9
+check sort-version   "$(printf '1.10\n1.9\n' | sort -V | head -1)"  1.9
+check sort-key       "$(printf 'b 1\na 2\n' | sort -k2,2n | head -1)"  "b 1"
+check sort-unique    "$(printf 'a\na\nb\n' | sort -u | tr '\n' ' ')"  "a b "
+check sort-reverse   "$(printf 'a\nb\n' | sort -r | head -1)"     b
+check sort-tab       "$(printf 'x:2\ny:1\n' | sort -t: -k2,2n | head -1)"  "y:1"
+
+check uniq-count     "$(printf 'a\na\nb\n' | uniq -c | head -1 | tr -s ' ')"  " 2 a"
+check uniq-dup       "$(printf 'a\na\nb\n' | uniq -d)"            a
+check uniq-only      "$(printf 'a\na\nb\n' | uniq -u)"            b
+
+check cut-field      "$(echo 'a:b:c' | cut -d: -f2)"              b
+check cut-range      "$(echo 'a:b:c:d' | cut -d: -f2-3)"          "b:c"
+check cut-chars      "$(echo abcdef | cut -c2-4)"                 bcd
+check cut-complement "$(echo 'a:b:c' | cut -d: -f2 --complement)" "a:c"
+
+check tr-upper       "$(echo abc | tr a-z A-Z)"                   ABC
+check tr-delete      "$(echo a1b2 | tr -d '0-9')"                 ab
+check tr-squeeze     "$(echo aaabbb | tr -s ab)"                  ab
+check tr-class       "$(echo 'a b' | tr -d '[:space:]')"          ab
+
+check head-lines     "$(seq 10 | head -3 | tr '\n' ' ')"          "1 2 3 "
+check head-negative  "$(seq 5 | head -n -3 | tr '\n' ' ')"        "1 2 "
+check tail-lines     "$(seq 10 | tail -2 | tr '\n' ' ')"          "9 10 "
+check tail-from      "$(seq 5 | tail -n +4 | tr '\n' ' ')"        "4 5 "
+
+check wc-lines       "$(printf 'a\nb\n' | wc -l | tr -d ' ')"     2
+check wc-words       "$(printf 'a b c\n' | wc -w | tr -d ' ')"    3
+
+check rev            "$(echo abc | rev)"                          cba
+check tac            "$(printf '1\n2\n3\n' | tac | tr '\n' ' ')"  "3 2 1 "
+check paste          "$(printf 'a\nb\n' | paste -sd,)"            "a,b"
+check nl             "$(printf 'x\n' | nl | tr '\t' ' ' | tr -s ' ')"  " 1 x"
+
+check basename       "$(basename /a/b/c.txt)"                     c.txt
+check basename-sfx   "$(basename /a/b/c.txt .txt)"                c
+check dirname        "$(dirname /a/b/c.txt)"                      /a/b
+
+check xargs-n1       "$(echo '1 2 3' | xargs -n1 echo x | tr '\n' ' ')"  "x 1 x 2 x 3 "
+check xargs-replace  "$(echo hello | xargs -I{} echo '[{}]')"     "[hello]"
+check xargs-null     "$(printf 'a\0b\0' | xargs -0 echo)"         "a b"
+
+check expr-math      "$(expr 3 + 4 '*' 2)"                        11
+check expr-length    "$(expr length abcde)"                       5
+check expr-substr    "$(expr substr abcdef 2 3)"                  bcd
+
+check tee            "$(echo teed | tee "$d/teed" >/dev/null; cat "$d/teed")"  teed

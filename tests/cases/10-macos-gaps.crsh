@@ -1,0 +1,39 @@
+suite macos-gaps
+
+# Every check here is something that fails on a stock macOS with /bin/bash
+# and the BSD userland, and is exactly what CriSH exists to fix.
+d=$(scratch)
+
+declare -A gap_map
+gap_map[key]=value
+check assoc-array    "${gap_map[key]}"                       value
+
+v=lower
+check case-mod       "${v^^}"                                LOWER
+
+printf 'l1\nl2\n' > "$d/m"
+mapfile -t lines < "$d/m"
+check mapfile        "${lines[1]}"                           l2
+
+check epochseconds   "$([ "$EPOCHSECONDS" -gt 1000000000 ] && echo yes)"  yes
+
+printf 'x\n' > "$d/sedfile"
+sed -i 's/x/y/' "$d/sedfile"
+check sed-i-bare     "$(cat "$d/sedfile")"                   y
+
+check date-d         "$(date -u -d '1970-01-03' '+%F')"      1970-01-03
+check timeout-exists "$(timeout 1 sleep 3 >/dev/null 2>&1; echo $?)"  124
+check stat-c         "$(printf 'ab' > "$d/two"; stat -c %s "$d/two")"  2
+check sha256sum      "$(printf '' | sha256sum | cut -c1-8)"  e3b0c442
+check readlink-f2    "$(cd "$d" && ln -sf two link && readlink -f link | grep -c two)"  1
+check grep-P         "$(echo a1 | grep -coP '\d')"           1
+check sort-V         "$(printf '1.10\n1.2\n' | sort -V | head -1)"  1.2
+check head-neg       "$(seq 4 | head -n -1 | tr '\n' ' ')"   "1 2 3 "
+# GNU base64 -w0 emits one unwrapped line with no trailing newline
+check base64-w       "$(printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' | base64 -w0 | wc -c | tr -d ' ')"  80
+
+shopt -s globstar
+mkdir -p "$d/gs/a/b"
+: > "$d/gs/a/b/deep.txt"
+check globstar-gap   "$(cd "$d/gs" && echo **/*.txt)"        "a/b/deep.txt"
+shopt -u globstar
