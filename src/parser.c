@@ -1673,7 +1673,10 @@ static Node *parse_command(Parser *p)
 	if (t->type == T_EOF)
 		return NULL;
 
-	if (t->type == T_LPAREN) {
+	if (t->type == T_IO_NUMBER || (t->type >= T_LESS && t->type <= T_ANDDGREAT)) {
+		/* a simple command may start with its redirections */
+		n = parse_simple(p);
+	} else if (t->type == T_LPAREN) {
 		n = parse_subshell(p);
 	} else if (t->type == T_DLPAREN) {
 		char *body;

@@ -143,6 +143,32 @@ usable interactive mode. The things it does not do are listed plainly in
 [bash compatibility](docs/bash.md) under **Not implemented**, rather than left
 for you to discover.
 
+## Credits
+
+CriSH exists because of **[FreSH](https://github.com/S42yt/FreSH)** by
+[@S42yt](https://github.com/S42yt), and is openly modelled on it.
+
+FreSH is a shell written in C that runs bash scripts natively on **Windows**,
+with no WSL, no MSYS2 and no Git Bash — one small executable with `awk`, `sed`,
+`grep` and `sort` built in, a self-updater, and a compatibility promise checked
+by running the same scripts through real bash in CI rather than merely asserted
+in a README.
+
+That last part is the idea worth stealing, and CriSH steals it deliberately:
+the [GNU compatibility page](docs/gnu.md) says what is and is not implemented
+per command, and the [differential test suite](tests/README.md) makes those
+claims fail the build when they stop being true. The shape of this repository —
+the docs layout, the honest **Not implemented** sections, the suite that runs
+under two shells — comes straight from FreSH.
+
+CriSH is the same idea pointed at the other platform. Windows cannot run bash
+scripts at all; macOS can, but only with a bash from 2007 and a BSD userland,
+which breaks Linux scripts in a hundred quieter ways.
+
+No FreSH source was copied — every line here was written from scratch, and the
+two projects share no code. Both are GPL-3.0. If you are on Windows, go use
+[FreSH](https://github.com/S42yt/FreSH).
+
 ## License
 
 GNU General Public License v3.0, see [LICENSE](LICENSE).

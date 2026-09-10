@@ -40,6 +40,12 @@ check pipe-chain     "$(printf 'c\na\nb\n' | sort | tr '\n' ',')"  "a,b,c,"
 check procsub        "$(cat <(echo from-procsub))"  from-procsub
 check procsub-diff   "$(comm -12 <(printf 'a\nb\n') <(printf 'b\nc\n') 2>/dev/null || echo b)"  b
 
+# A command may begin with its redirections; /usr/bin/man does exactly this.
+> "$d/lead" echo redirect-first
+check redirect-leading "$(cat "$d/lead")"        redirect-first
+check redirect-lead-fd "$( { 1>&2 echo to-stderr; } 2>&1 )"  to-stderr
+check redirect-lead-in "$(< "$d/lead" cat)"      redirect-first
+
 exec 3> "$d/fd3"
 echo via-fd3 >&3
 exec 3>&-
