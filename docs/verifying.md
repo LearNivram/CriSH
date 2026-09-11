@@ -28,7 +28,7 @@ The strongest check is not to trust the download at all:
 
 ```sh
 git clone https://github.com/LearNivram/CriSH
-cd CriSH && git checkout v0.1.0
+cd CriSH && git checkout v0.2.0
 ./build.sh
 shasum -a 256 build/crish
 ```

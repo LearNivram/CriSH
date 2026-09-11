@@ -18,7 +18,7 @@ Options:
 
 ```sh
 ... install.sh)" -- --prefix ~/.local     # choose where it goes
-... install.sh)" -- --version v0.1.0      # pin a release
+... install.sh)" -- --version v0.2.0      # pin a release
 ... install.sh)" -- --register            # add it to /etc/shells
 ... install.sh)" -- --uninstall           # remove it again
 ```
