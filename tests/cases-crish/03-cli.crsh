@@ -1,0 +1,12 @@
+suite cli
+
+# `crish update` is a subcommand, not a script called "update".  An unknown
+# flag is refused before anything touches the network, so this stays offline.
+check update-subcommand "$("$CRISH" update --bogus >/dev/null 2>&1; echo $?)"  2
+check update-help       "$("$CRISH" update --help | head -n 1)"  "usage: crish update [--check] [--pre] [--selector]"
+
+# ... but a real script of that name in the current directory still wins.
+update_dir=$(scratch)/update-script
+mkdir -p "$update_dir"
+printf 'echo ran-the-script\n' > "$update_dir/update"
+check update-script-wins "$(cd "$update_dir" && "$CRISH" update)"  ran-the-script
