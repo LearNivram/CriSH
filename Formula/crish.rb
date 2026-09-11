@@ -5,7 +5,7 @@ class Crish < Formula
   desc "Shell that runs Linux scripts on macOS: bash 5 language, GNU utilities built in"
   homepage "https://github.com/LearNivram/CriSH"
   url "https://github.com/LearNivram/CriSH/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "4b93be882162d9a0e60181bdd4c016e0b3f525d985d39462b31e1c6165e2a333"
+  sha256 "4e495e54b8ee38d35795add5985f4392c0ac2ce9f1dad0ed121cc073b3aaccb9"
   license "GPL-3.0-or-later"
   head "https://github.com/LearNivram/CriSH.git", branch: "master"
 

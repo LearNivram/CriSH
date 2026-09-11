@@ -327,6 +327,13 @@ int main(int argc, char **argv, char **envp)
 		return 0;
 	}
 
+	/* `crish update' is how the docs say to update, but update is a builtin,
+	 * so without this it was looked up as a script and failed.  A script that
+	 * really is called update, in the current directory, still runs. */
+	if (!command && !read_stdin && i < argc && strcmp(argv[i], "update") == 0 &&
+	    access(argv[i], F_OK) != 0)
+		return builtin_find("update")->fn(argc - i, argv + i);
+
 	if (!command && !read_stdin && i < argc)
 		script = argv[i++];
 
