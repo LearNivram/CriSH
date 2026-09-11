@@ -59,7 +59,7 @@ jobs:
             echo 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/'"$GITHUB_REPOSITORY"'/master/install.sh)"'
             echo '```'
             echo
-            echo "Or \`crish update\` from an older version."
+            echo "Already installed: \`crish update\`, or \`crish -c update\` from 0.1.0 and 0.2.0."
             echo
             echo "## Verify"
             echo
