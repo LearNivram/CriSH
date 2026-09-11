@@ -71,6 +71,8 @@ static int heredoc_fd(const char *text)
 	unlink(path);
 	while (len) {
 		n = write(fd, text, len);
+		if (n < 0 && errno == EINTR)
+			continue;
 		if (n <= 0)
 			break;
 		text += n;

@@ -698,55 +698,70 @@ int gnu_timeout(int argc, char **argv)
 	}
 
 	{
-		struct sigaction sa;
-		struct itimerval it;
+		struct sigaction sa, old_alarm;
+		struct itimerval it, off;
+		int fired = 0;
 
+		/* No SA_RESTART on purpose: the alarm has to interrupt waitpid
+		 * below, which is how the deadline is noticed at all. */
 		memset(&sa, 0, sizeof sa);
 		sa.sa_handler = on_alarm;
 		sigemptyset(&sa.sa_mask);
-		sigaction(SIGALRM, &sa, NULL);
+		sigaction(SIGALRM, &sa, &old_alarm);
 
 		memset(&it, 0, sizeof it);
 		it.it_value.tv_sec = (time_t)duration;
-		it.it_value.tv_usec = (suseconds_t)((duration - (double)(time_t)duration) * 1e6);
+		it.it_value.tv_usec =
+			(suseconds_t)((duration - (double)(time_t)duration) * 1e6);
 		if (it.it_value.tv_sec == 0 && it.it_value.tv_usec == 0)
 			it.it_value.tv_usec = 1;
 		setitimer(ITIMER_REAL, &it, NULL);
-	}
 
-	for (;;) {
-		pid_t r = waitpid(timeout_child, &status, 0);
+		for (;;) {
+			pid_t r = waitpid(timeout_child, &status, 0);
 
-		if (r == timeout_child)
-			break;
-		if (r < 0 && errno == EINTR) {
-			if (timed_out) {
-				kill(timeout_child, sig);
-				if (kill_after > 0) {
-					struct itimerval it;
-
-					memset(&it, 0, sizeof it);
-					it.it_value.tv_sec = (time_t)kill_after;
-					setitimer(ITIMER_REAL, &it, NULL);
-					timed_out = 0;
-					if (waitpid(timeout_child, &status, 0) ==
-					    timeout_child)
-						break;
-					kill(timeout_child, SIGKILL);
+			if (r == timeout_child)
+				break;
+			if (r < 0 && errno == EINTR) {
+				if (timed_out) {
+					fired = 1;
+					kill(timeout_child, sig);
+					if (kill_after > 0) {
+						memset(&it, 0, sizeof it);
+						it.it_value.tv_sec = (time_t)kill_after;
+						setitimer(ITIMER_REAL, &it, NULL);
+						timed_out = 0;
+						if (waitpid(timeout_child, &status, 0) ==
+						    timeout_child)
+							break;
+						kill(timeout_child, SIGKILL);
+					}
 				}
 				continue;
 			}
-			continue;
+			if (r < 0)
+				break;
 		}
-		if (r < 0)
-			break;
-	}
 
-	vec_free(&cmd);
-	if (timed_out || (WIFSIGNALED(status) && WTERMSIG(status) == sig)) {
-		if (preserve_status)
-			return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
-		return 124;
+		/* timeout runs inside the shell, so it must leave nothing behind.
+		 * A timer still armed after the command finished early used to
+		 * fire seconds later in the shell itself and interrupt whatever
+		 * read was in progress, so a $(...) came back empty. */
+		memset(&off, 0, sizeof off);
+		setitimer(ITIMER_REAL, &off, NULL);
+		sigaction(SIGALRM, &old_alarm, NULL);
+		if (timed_out)
+			fired = 1;
+		timed_out = 0;
+		timeout_child = 0;
+
+		vec_free(&cmd);
+		if (fired || (WIFSIGNALED(status) && WTERMSIG(status) == sig)) {
+			if (preserve_status)
+				return WIFEXITED(status) ? WEXITSTATUS(status)
+							 : 128 + WTERMSIG(status);
+			return 124;
+		}
+		return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 	}
-	return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 }

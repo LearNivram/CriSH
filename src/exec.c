@@ -1354,10 +1354,20 @@ char *exec_capture(Node *n, int *status)
 	}
 	close(fds[1]);
 	buf_init(&out);
-	while ((got = read(fds[0], chunk, sizeof chunk)) > 0)
-		buf_put(&out, chunk, (size_t)got);
+	for (;;) {
+		got = read(fds[0], chunk, sizeof chunk);
+		if (got > 0) {
+			buf_put(&out, chunk, (size_t)got);
+			continue;
+		}
+		/* a signal arriving mid-read is not the end of the output */
+		if (got < 0 && errno == EINTR)
+			continue;
+		break;
+	}
 	close(fds[0]);
-	waitpid(pid, &wstatus, 0);
+	while (waitpid(pid, &wstatus, 0) < 0 && errno == EINTR)
+		;
 	if (status)
 		*status = WIFEXITED(wstatus) ? WEXITSTATUS(wstatus) : 128 + WTERMSIG(wstatus);
 

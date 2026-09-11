@@ -127,7 +127,7 @@ A four stage pipeline, `printf | grep | sed | sort | head`:
 | Homebrew bash 5.3 with GNU utilities | 8.63 ms |
 
 A pipeline stage that is a built-in utility forks but never `execve`s, which is
-where that difference comes from. The binary is 652 KB, universal (arm64 and
+where that difference comes from. The binary is 720 KB, universal (arm64 and
 x86_64), and links nothing but `libSystem`. The method and the script behind
 every number are in [benchmarks](docs/benchmarks.md).
 

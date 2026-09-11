@@ -58,7 +58,7 @@ That is where the difference comes from. It grows with the number of stages.
 ### The binary
 
 ```
-size                 652K
+size                 720K
 architectures        x86_64 arm64
 dynamic libraries    1   (/usr/lib/libSystem.B.dylib)
 ```
