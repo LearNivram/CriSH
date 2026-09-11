@@ -8,6 +8,11 @@ check timeout-fires  "$?"                       124
 timeout 5 true
 check timeout-passes "$?"                       0
 
+# timeout must not leave its alarm armed when the command finishes early: a
+# stray timer used to fire later inside the shell and cut a $(...) short.
+timeout 1 true
+check timeout-no-leftover "$(sleep 1.5; echo still-here)"  still-here
+
 # BSD date has no -d and no --iso-8601
 check date-epoch     "$(date -u -d @0 '+%Y-%m-%d %H:%M:%S')"    "1970-01-01 00:00:00"
 check date-seconds   "$(date -u -d '1970-01-02' '+%s')"          86400
